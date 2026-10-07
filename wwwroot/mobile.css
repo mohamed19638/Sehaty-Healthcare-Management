@@ -1,0 +1,61 @@
+@media (max-width: 760px) {
+  .sidebar {
+    overflow-x: auto;
+    justify-content: flex-start;
+    gap: 3px;
+    scrollbar-width: none;
+  }
+  .sidebar::-webkit-scrollbar {
+    display: none;
+  }
+  .nav-item {
+    flex: 0 0 57px;
+    min-width: 57px;
+    font-size: 9px;
+    line-height: 1.15;
+  }
+  .nav-item:last-child {
+    flex-basis: 54px;
+    min-width: 54px;
+  }
+  .profile-text {
+    display: none;
+  }
+  .welcome {
+    max-width: calc(100vw - 95px);
+  }
+  .welcome h1 {
+    line-height: 1.55;
+  }
+  .chart-legend {
+    flex-wrap: wrap;
+    gap: 5px 12px;
+  }
+  .main {
+    overflow-x: hidden;
+  }
+}
+@media (max-width: 380px) {
+  .metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+  .metric {
+    min-width: 0;
+  }
+  .metric-head {
+    font-size: 10px;
+  }
+  .metric-number {
+    font-size: 20px;
+  }
+  .metric-note {
+    font-size: 9px;
+  }
+  .record {
+    gap: 5px;
+  }
+  .record-time {
+    font-size: 9px;
+  }
+}
+

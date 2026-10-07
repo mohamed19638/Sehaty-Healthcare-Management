@@ -1,0 +1,22 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+appsettings.json
+appsettings.Development.json
+appsettings.*.json
+
+# Build output and IDE files
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+
+# Local database and logs
+*.mdf
+*.ldf
+*.db
+*.log
+
