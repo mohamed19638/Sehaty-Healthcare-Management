@@ -13,9 +13,16 @@
 
 ### تشغيل المشروع كاملًا باستخدام Docker (الأسهل)
 
-المتطلبات: Docker Desktop مع Docker Compose مفعّلًا.
+المتطلبات: [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) مع Docker Compose مفعّلًا.
 
-1. انسخ ملف الإعدادات التجريبي إلى `.env`:
+نزّل المشروع من زر **Code > Download ZIP** في صفحة GitHub وفك الضغط، أو استخدم Git:
+
+```powershell
+git clone https://github.com/mohamed19638/Sehaty-Healthcare-Management.git
+cd Sehaty-Healthcare-Management
+```
+
+1. من داخل مجلد المشروع، انسخ ملف الإعدادات التجريبي إلى `.env`:
 
    ```powershell
    Copy-Item .env.example .env
