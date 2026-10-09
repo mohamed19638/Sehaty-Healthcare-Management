@@ -1,13 +1,12 @@
 .git
 .vs
-.idea
 bin
 obj
-.env
-.env.*
-appsettings*.json
 *.user
 *.suo
+appsettings*.json
+.env
+.env.*
 *.mdf
 *.ldf
 *.db

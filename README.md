@@ -1,93 +1,143 @@
 # Sehaty+
 
-تطبيق تخرج بسيط لمتابعة البيانات الصحية الشخصية. الواجهة عربية ومتجاوبة، ويخدمها ASP.NET Core Web API مباشرة من نفس المشروع.
+A beginner-friendly personal healthcare graduation project. The frontend is a separate, plain HTML/CSS/JavaScript app with an Arabic/English language toggle and RTL layout; the backend is a separate ASP.NET Core Web API. No React or advanced architecture patterns are used.
 
-## التقنيات
+## Technology
 
-- ASP.NET Core Web API وC# على .NET 8
-- Entity Framework Core وSQL Server
-- JWT لتسجيل الدخول وحماية بيانات المستخدم
-- HTML وCSS وJavaScript عادي داخل `wwwroot`
+- Backend: ASP.NET Core Web API, C#, .NET 8, Entity Framework Core, SQL Server in `backend/`
+- Frontend: HTML, CSS, and vanilla JavaScript in `frontend/`
+- Local run: Docker Compose, with separate frontend, API, and SQL Server containers
 
-## التشغيل
+## Run the complete project with Docker
 
-### تشغيل المشروع كاملًا باستخدام Docker (الأسهل)
+Requirements: Docker Desktop with Compose enabled.
 
-المتطلبات: [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) مع Docker Compose مفعّلًا.
-
-نزّل المشروع من زر **Code > Download ZIP** في صفحة GitHub وفك الضغط، أو استخدم Git:
+From the project root in PowerShell:
 
 ```powershell
-git clone https://github.com/mohamed19638/Sehaty-Healthcare-Management.git
-cd Sehaty-Healthcare-Management
+Copy-Item .env.example .env
+notepad .env
 ```
 
-1. من داخل مجلد المشروع، انسخ ملف الإعدادات التجريبي إلى `.env`:
+Change the local-only values in `.env` to private values. Use a SQL Server password that meets SQL Server's password policy and a random JWT key of at least 32 bytes. Do not share or commit `.env`.
 
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+Then start the services:
 
-2. شغّل التطبيق وقاعدة البيانات:
+```powershell
+docker compose up --build -d
+docker compose ps
+```
 
-   ```powershell
-   docker compose up --build
-   ```
+Open the website at <http://localhost:8080>. The API Swagger page is at <http://localhost:8081/swagger> or through <http://localhost:8080/swagger>. The API applies EF Core migrations on startup.
 
-3. افتح [http://localhost:8080](http://localhost:8080). قاعدة البيانات تُجهّز تلقائيًا عند أول تشغيل.
+The services are separate:
 
-لو أردت الاتصال بقاعدة البيانات من SSMS على جهازك، استخدم `localhost,14330`. التطبيق نفسه يتصل بها داخليًا عبر Docker على `sqlserver,1433`.
+- `frontend`: Nginx serves the static files from `frontend/` and forwards `/api` and `/swagger` requests to the API.
+- `api`: ASP.NET Core Web API, project files and C# code in `backend/`.
+- `sqlserver`: SQL Server 2022 with persistent data in the `sqlserver-data` Docker volume.
 
-لإيقاف الحاويات اضغط `Ctrl+C` ثم شغّل `docker compose down`. البيانات تظل محفوظة في volume اسمه `sqlserver-data`. حذف البيانات نهائيًا يكون فقط عند تشغيل `docker compose down --volumes`.
+The API is also exposed to the host on port `8081`; the SQL Server port is `14330` on the host (`localhost,14330` in SSMS). The frontend uses the API through its Nginx proxy, so browser requests remain same-origin.
 
-القيم الموجودة في `.env.example` للتجربة المحلية فقط؛ لا تستخدمها على خادم عام. ملف `.env` وملفات `appsettings*.json` المحلية مستثناة من Git، لذلك لا ترفع كلمات مرورك أو مفاتيح JWT.
+Stop containers without deleting database data:
 
-### تشغيل المشروع مباشرة على Windows
+```powershell
+docker compose down
+```
 
-1. شغّل SQL Server واضبط متغيري البيئة `ConnectionStrings__DefaultConnection` و`Jwt__Key` في جلستك المحلية.
-2. افتح Terminal داخل مجلد المشروع وشغّل:
+Do not use `docker compose down --volumes` unless you explicitly want to delete the SQL Server data volume.
 
-   ```powershell
-   dotnet restore
-   dotnet run
-   ```
+## Run the frontend and API separately for learning
 
-3. افتح عنوان التشغيل الذي يظهر في Terminal. عادةً يكون `http://localhost:5295`، وواجهة Swagger على `/swagger`.
+Start SQL Server and the API with the connection string and JWT key configured as environment variables, then start a static server in `frontend/` on port `5500`. `frontend/config.js` points that static site to the API's default HTTP port `5295`. The API allows the local frontend origins `http://localhost:5500` and `http://127.0.0.1:5500`.
 
-قاعدة البيانات الافتراضية `SehatyDb`. عند أول تشغيل، تطبّق EF Core ملفات Migrations وتضيف بيانات العرض. Swagger متاح على `/swagger`.
+```powershell
+dotnet restore .\i-am-building-a-simple-graduation.sln
+dotnet run --project .\backend\i-am-building-a-simple-graduation.csproj
+```
 
-## حساب العرض
+In a second terminal:
 
-- البريد: `demo@sehaty.com`
-- كلمة المرور: `Demo123!`
+```powershell
+py -m http.server 5500 --directory .\frontend
+```
 
-يُخزّن المشروع كلمة المرور كـ hash. حساب العرض والبيانات المضافة مخصّصان للتجربة التعليمية.
+Then open <http://localhost:5500>. Docker Compose is the easiest way to run the complete stack because it also starts SQL Server and supplies the connection settings.
 
-## المزايا والـ API
+## Demo login
 
-| المسار | الاستخدام |
+- Email: `demo@sehaty.com`
+- Password: `Demo123!`
+
+The demo user is created if it does not already exist. The password is stored as a password hash. The application no longer creates invented doctor, pharmacy, meal, exercise-video, measurement, or nutrition seed records. Existing records are preserved.
+
+## Features
+
+- Registration and login using JWT authentication
+- User-scoped health measurements with date and time
+- Adult reference information for blood pressure, fasting blood glucose, and resting pulse, with clear context requirements and non-diagnostic wording
+- BMI calculation based on the user's saved height and weight
+- Medication, medical record, lab result, and activity logs
+- Doctor and pharmacy lists with WhatsApp links only when a valid international number is supplied
+- Appointment requests for one user per doctor/time slot, protected by a database unique index
+- Healthy meal catalogue, initially empty until real meal data is provided
+- Nine owner-provided YouTube workout videos added to the exercise catalogue at API startup
+- Measurement export to a real `.xlsx` workbook
+- Measurement print view; choose **Save as PDF** in the browser's print dialog
+- Explicitly confirmed WhatsApp sharing; Messenger copies the summary so the user can paste it into a conversation manually
+
+Sharing health details is always a user action and requires confirmation. The API exports only the signed-in user's measurements. The website does not send messages, confirm an appointment with a doctor, diagnose a condition, or replace medical advice.
+
+The BMI uses the height saved in the profile and the latest dated weight measurement. Recording a newer weight updates the profile weight; the user can also update height and weight on the BMI page.
+
+## Medical reference context
+
+The simple reference labels are intended for adults and are not diagnoses:
+
+- Blood pressure categories follow the American Heart Association adult chart. A very high reading prompts repeat measurement and clinician guidance; emergency symptoms require urgent care.
+- Fasting glucose categories are shown only when the user marks the measurement as fasting. A reading cannot diagnose diabetes; the CDC notes diagnosis requires appropriate clinical testing.
+- Resting pulse uses the general adult range of 60–100 beats per minute and is interpreted only when the user marks that they were resting.
+- Measurements for people under 18 are not classified using adult categories. Pregnancy, medicines, exercise, symptoms, technique, and medical history can change interpretation.
+
+Sources: [CDC adult BMI categories](https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html), [American Heart Association blood pressure categories](https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings), [MedlinePlus typical resting adult vital signs](https://medlineplus.gov/ency/article/002341.htm), [CDC diabetes testing](https://www.cdc.gov/diabetes/diabetes-testing/index.html), and [MedlinePlus pulse information](https://medlineplus.gov/ency/article/003399.htm).
+
+## Appointment schedule assumption
+
+Doctor availability is not currently configured in the database. For this simple version, every doctor has 30-minute slots from 9:00 AM to 5:00 PM Cairo time. Each slot can be requested once. The unique database index protects against two users booking the same slot concurrently. A request is not a confirmation from the doctor. Update this default when real doctor schedules are supplied.
+
+## Add real catalogue data later
+
+Doctor and pharmacy records are stored in the `Doctors` and `Pharmacies` tables. WhatsApp values must be valid international numbers containing digits only, without a `+` prefix or punctuation; the app does not guess country codes. Existing legacy rows marked `PENDING` are hidden, not deleted. Meal records are in `Meals`. Exercise video records are in `Exercises`; only HTTPS YouTube watch, Shorts, or `youtu.be` links with valid video IDs are embedded. No sample catalogue records are generated.
+
+## API routes
+
+| Route | Purpose |
 | --- | --- |
-| `POST /api/auth/register` و`POST /api/auth/login` | إنشاء حساب وتسجيل الدخول |
-| `GET /api/auth/me` | بيانات الحساب الحالي |
-| `GET /api/dashboard` | القياسات الحديثة والتغذية والمواعيد |
-| `/api/healthmeasurements` | قراءة وإضافة وتعديل وحذف القياسات |
-| `/api/medications` | قراءة وإضافة وحذف الأدوية |
-| `/api/medicalrecords` و`/api/labresults` | السجل الطبي والتحاليل |
-| `/api/nutrition` و`/api/fitness` | سجلات التغذية والتمارين |
-| `/api/doctors` و`/api/appointments` | الأطباء وحجز المواعيد |
-| `/api/pharmacies?search=` | الصيدليات والبحث بالاسم أو العنوان |
-| `/api/chat/{doctorId}` و`POST /api/chat` | رسائل محفوظة في قاعدة البيانات |
+| `POST /api/auth/register`, `POST /api/auth/login` | Create an account and sign in |
+| `GET /api/auth/me` | Current user's profile |
+| `GET /api/dashboard` | Current user's overview |
+| `/api/healthmeasurements` | Read, add, update, and delete the current user's measurements |
+| `GET /api/bmi`, `PUT /api/bmi` | Read and update height/weight BMI inputs |
+| `/api/appointments` | Read and request the current user's appointments |
+| `GET /api/appointments/availability?doctorId=1&date=YYYY-MM-DD` | List free Cairo-time slots |
+| `/api/export/measurements/xlsx` | Download the signed-in user's measurement workbook |
+| `/api/medications`, `/api/medicalrecords`, `/api/labresults`, `/api/fitness` | Current user's health and activity records |
+| `GET /api/doctors`, `GET /api/pharmacies?search=` | Public doctor and pharmacy catalogues |
+| `GET /api/meals`, `GET /api/exercises` | Public meal and exercise-video catalogues |
 
-كل مسارات بيانات المستخدم تتعرف على مالك البيانات من JWT. لا ترسل الواجهة `UserId` للتحكم في ملكية السجلات. سجلات القياس تحفظ التاريخ والوقت؛ وتعرض الواجهة القراءات على الرسم وفي سجل زمني. السعرات تحسب من المغذيات الكبرى عند إدخال الوجبة: البروتين × 4 + الكربوهيدرات × 4 + الدهون × 9، ويجمع ملخص اليوم الوجبات المسجلة في نفس اليوم.
+Chat and personal calorie/macro logging have been removed from the active API and interface. Their existing database tables are retained so old records are not automatically deleted.
 
-## هيكل المشروع
+## Database migrations
 
-- `Controllers/`: Controller منفصل لكل مجموعة API.
-- `DTOs/`: نماذج استقبال طلبات التسجيل والقياس والتغذية وغيرها.
-- `Models/`: كيانات قاعدة البيانات.
-- `Data/AppDbContext.cs`: DbContext وعلاقات EF Core.
-- `Migrations/`: إنشاء مخطط قاعدة البيانات وتحديثه.
-- `wwwroot/`: صفحات الواجهة وسكربتاتها وتنسيقاتها.
+Migrations are in `backend/Migrations/`. `backend/Data/AppDbContextFactory.cs` lets EF Core create migrations without starting the API or applying them to the configured database. Schema updates only add catalogue/context data and the appointment uniqueness constraint; existing nutrition, chat, and activity calorie columns are retained for data compatibility.
 
-الأطباء والصيدليات وبيانات الحساب التجريبي بيانات توضيحية. المحادثة لا تعمل لحظيًا ولا ترسل رسائل حقيقية، وزر WhatsApp يفتح رابط تواصل مبنيًا على رقم الطبيب المسجل. المشروع تعليمي وليس نظامًا طبيًا للاستخدام الإنتاجي.
+## Project layout
 
+- `frontend/`: HTML, CSS, JavaScript, Nginx config, and frontend Dockerfile
+- `backend/Controllers/`: beginner-friendly API controllers
+- `backend/DTOs/`: API request models
+- `backend/Models/`: EF Core entities
+- `backend/Data/AppDbContext.cs`: database tables and relationships
+- `backend/Migrations/`: SQL Server schema history
+- `compose.yaml`: separate frontend, API, and database services
+
+This is an educational project, not a production medical system.

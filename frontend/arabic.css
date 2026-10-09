@@ -1,0 +1,91 @@
+@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap");
+
+html[lang="ar"] body,
+html[lang="ar"] button,
+html[lang="ar"] input,
+html[lang="ar"] select,
+html[lang="ar"] textarea {
+  font-family: Cairo, Arial, sans-serif;
+}
+
+.language-toggle {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 13px;
+  color: var(--deep);
+  background: #fff;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.auth-screen > .language-toggle {
+  position: absolute;
+  z-index: 2;
+  top: 18px;
+  right: 20px;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+html[dir="rtl"] .sidebar {
+  left: auto;
+  right: 0;
+  border-right: 0;
+  border-left: 1px solid var(--line);
+}
+
+html[dir="rtl"] .main {
+  margin-left: 0;
+  margin-right: 235px;
+}
+
+html[dir="rtl"] .chart-wrap,
+html[dir="rtl"] .chart-wrap svg,
+html[dir="rtl"] .source-links,
+html[dir="rtl"] input[type="date"],
+html[dir="rtl"] input[type="datetime-local"],
+html[dir="rtl"] .record-time {
+  direction: ltr;
+}
+
+html[dir="rtl"] .chart-wrap,
+html[dir="rtl"] .source-links,
+html[dir="rtl"] .record-time,
+html[dir="rtl"] .reference-ranges {
+  direction: rtl;
+}
+
+html[dir="rtl"] .chart-wrap {
+  text-align: right;
+}
+
+@media (max-width: 1050px) and (min-width: 761px) {
+  html[dir="rtl"] .main {
+    margin-right: 200px;
+  }
+}
+
+@media (max-width: 760px) {
+  html[dir="rtl"] .sidebar {
+    left: 0;
+    right: 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  html[dir="rtl"] .main {
+    margin: 0;
+  }
+
+  .top-actions {
+    gap: 6px;
+  }
+
+  .top-actions .language-toggle {
+    padding: 7px 9px;
+  }
+}
