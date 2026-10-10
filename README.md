@@ -79,7 +79,7 @@ The demo user is created if it does not already exist. The password is stored as
 - Medication, medical record, lab result, and activity logs
 - Doctor and pharmacy lists with WhatsApp links only when a valid international number is supplied
 - Appointment requests for one user per doctor/time slot, protected by a database unique index
-- Healthy meal catalogue, initially empty until real meal data is provided
+- Private per-user meal entries with optional user-entered calorie estimates; no nutritional values are invented
 - Nine owner-provided YouTube workout videos added to the exercise catalogue at API startup
 - Measurement export to a real `.xlsx` workbook
 - Measurement print view; choose **Save as PDF** in the browser's print dialog

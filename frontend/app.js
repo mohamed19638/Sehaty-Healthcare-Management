@@ -217,6 +217,15 @@ const forms = {
       ["endDate", "End Date", "date"],
     ],
   ],
+  meal: [
+    "Add Meal",
+    "/meals",
+    [
+      ["name", "Meal Name", "text"],
+      ["description", "Description", "text"],
+      ["calories", "Calories (optional)", "number"],
+    ],
+  ],
   fitness: [
     "Log Activity",
     "/fitness",
@@ -255,7 +264,7 @@ function modal(k) {
   document.querySelector(".modal-bg")?.remove();
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<div class="modal-bg" onclick="if(event.target===this)this.remove()"><form class="modal" id="entry"><h3>${title}</h3><div class="form-grid">${fields.map(([n, label, type, options]) => `<div class="field ${["notes", "instructions"].includes(n) ? "wide" : ""}"><label for="${n}">${label}</label>${type === "select" ? `<select id="${n}" name="${n}">${options.map(([value, text]) => `<option value="${value}">${text}</option>`).join("")}</select>` : `<input id="${n}" name="${n}" type="${type}" ${type === "datetime-local" ? `value="${(() => { const local = new Date(); local.setMinutes(local.getMinutes() - local.getTimezoneOffset()); return local.toISOString().slice(0, 16); })()}"` : ["date", "diagnosisDate", "testDate", "startDate"].includes(n) ? `value="${today()}"` : ""} ${["name", "activityName", "condition", "testName", "result"].includes(n) ? "required" : ""} ${type === "number" ? 'min="0" step="0.1"' : ""}>`}</div>`).join("")}</div><div id="formError"></div><button class="btn">Save</button> <button type="button" class="btn ghost" onclick="document.querySelector('.modal-bg').remove()">Cancel</button></form></div>`,
+    `<div class="modal-bg" onclick="if(event.target===this)this.remove()"><form class="modal" id="entry"><h3>${title}</h3><div class="form-grid">${fields.map(([n, label, type, options]) => `<div class="field ${["notes", "instructions"].includes(n) ? "wide" : ""}"><label for="${n}">${label}</label>${type === "select" ? `<select id="${n}" name="${n}">${options.map(([value, text]) => `<option value="${value}">${text}</option>`).join("")}</select>` : `<input id="${n}" name="${n}" type="${type}" ${type === "datetime-local" ? `value="${(() => { const local = new Date(); local.setMinutes(local.getMinutes() - local.getTimezoneOffset()); return local.toISOString().slice(0, 16); })()}"` : ["date", "diagnosisDate", "testDate", "startDate"].includes(n) ? `value="${today()}"` : ""} ${["name", "activityName", "condition", "testName", "result"].includes(n) ? "required" : ""} ${type === "number" ? `min="0" step="${n === "calories" ? "1" : "0.1"}"` : ""}>`}</div>`).join("")}</div><div id="formError"></div><button class="btn">Save</button> <button type="button" class="btn ghost" onclick="document.querySelector('.modal-bg').remove()">Cancel</button></form></div>`,
   );
   document.querySelector("#entry").onsubmit = async (e) => {
     e.preventDefault();
@@ -546,13 +555,12 @@ async function pharmacies() {
 }
 
 async function meals() {
-  let r = [];
-  try { r = await api("/meals"); } catch { }
+  let r = await api("/meals");
   shell("Healthy Meals", "Meal information for a balanced diet.",
-    `<div class="page-title"><h2>Meal List</h2></div>
+    `<div class="page-title"><div><h2>Meal List</h2><p>Your added meals are private to your account.</p></div><button class="btn" onclick="modal('meal')">＋ Add Meal</button></div>
     <section class="panel">
       <div class="notice" style="margin-bottom:12px">
-        <b>Note:</b> Calorie values shown are estimates unless stated otherwise. This information is for general reference only and does not constitute medical or dietary advice.
+        <b>Note:</b> Calories you enter are marked as estimates. This information is for general reference only and does not constitute medical or dietary advice.
       </div>
       ${r && r.length ? `<div class="cards-grid">${r.map(x => `
         <article class="doctor-card">
@@ -561,7 +569,8 @@ async function meals() {
             <div><h3>${esc(x.name)}</h3><p>${esc(x.description || '')}</p></div>
           </div>
           ${x.calories ? `<p>Calories: <b>${x.calories} kcal</b>${x.isEstimate ? ' <em>(estimate)</em>' : ''}</p>` : '<p style="color:var(--muted)">Calorie info not available</p>'}
-        </article>`).join('')}</div>` : '<div class="empty">No meal data available yet. Meals will be added soon.</div>'}
+          ${x.isMine ? `<button class="btn danger" type="button" onclick="del('/meals/${x.id}')">Delete</button>` : ''}
+        </article>`).join('')}</div>` : '<div class="empty">No meals saved yet. Add a meal to get started.</div>'}
     </section>`);
 }
 

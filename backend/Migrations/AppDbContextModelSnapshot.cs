@@ -285,7 +285,12 @@ namespace i_am_building_a_simple_graduation.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Meals");
                 });
@@ -537,6 +542,16 @@ namespace i_am_building_a_simple_graduation.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("i_am_building_a_simple_graduation.Models.Meal", b =>
+                {
+                    b.HasOne("i_am_building_a_simple_graduation.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("User");
                 });

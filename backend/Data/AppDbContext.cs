@@ -47,5 +47,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<Appointment>()
             .HasIndex(x => new { x.DoctorId, x.AppointmentDate })
             .IsUnique();
+        b.Entity<Meal>()
+            .HasOne(x => x.User)
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -7,4 +7,6 @@ public class Meal
     public int? Calories { get; set; }
     public bool IsEstimate { get; set; }
     public string? ImageUrl { get; set; }
+    public int? UserId { get; set; }
+    public User? User { get; set; }
 }
