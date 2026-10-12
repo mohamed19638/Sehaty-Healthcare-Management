@@ -48,10 +48,9 @@ namespace i_am_building_a_simple_graduation.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("DoctorId");
 
-                    b.HasIndex("DoctorId", "AppointmentDate")
-                        .IsUnique();
+                    b.HasIndex("UserId");
 
                     b.ToTable("Appointments");
                 });
@@ -461,6 +460,11 @@ namespace i_am_building_a_simple_graduation.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Phone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasDefaultValue("User")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("Weight")

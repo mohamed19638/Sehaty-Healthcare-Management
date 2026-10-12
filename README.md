@@ -67,8 +67,20 @@ Then open <http://localhost:5500>. Docker Compose is the easiest way to run the 
 
 - Email: `demo@sehaty.com`
 - Password: `Demo123!`
+- Admin email: `admin@sehaty.com`
+- Admin password: `Admin123!`
 
-The demo user is created if it does not already exist. The password is stored as a password hash. The application no longer creates invented doctor, pharmacy, meal, exercise-video, measurement, or nutrition seed records. Existing records are preserved.
+The demo user and administrator are created if they do not already exist. Passwords are stored as hashes. These are public demo credentials for local classroom use only; do not use them on a public deployment. Doctor, pharmacy, meal, measurement, and nutrition data are not fabricated; existing records are preserved. The workout links are the videos supplied for this project.
+
+## Administrator account
+
+Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your local `.env` file (do not commit that file), then restart the API:
+
+```powershell
+docker compose up -d --build api
+```
+
+At startup, the app creates a password-hashed admin account if the email is new, or promotes the existing account with that email. Sign out and sign back in after the role is assigned; the **Admin Dashboard** link then appears. The admin can add, edit, and delete doctors and pharmacies, enter their WhatsApp numbers, and correct/add exercise video titles and links. Contact information must be supplied by the project team; the app does not invent phone numbers.
 
 ## Features
 
@@ -78,7 +90,8 @@ The demo user is created if it does not already exist. The password is stored as
 - BMI calculation based on the user's saved height and weight
 - Medication, medical record, lab result, and activity logs
 - Doctor and pharmacy lists with WhatsApp links only when a valid international number is supplied
-- Appointment requests for one user per doctor/time slot, protected by a database unique index
+- Personal visit reminders saved to the user's account; they do not book or notify a doctor
+- Role-protected admin dashboard for doctor, pharmacy, and workout-video catalogue management
 - Private per-user meal entries with optional user-entered calorie estimates; no nutritional values are invented
 - Nine owner-provided YouTube workout videos added to the exercise catalogue at API startup
 - Measurement export to a real `.xlsx` workbook
@@ -100,13 +113,13 @@ The simple reference labels are intended for adults and are not diagnoses:
 
 Sources: [CDC adult BMI categories](https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html), [American Heart Association blood pressure categories](https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings), [MedlinePlus typical resting adult vital signs](https://medlineplus.gov/ency/article/002341.htm), [CDC diabetes testing](https://www.cdc.gov/diabetes/diabetes-testing/index.html), and [MedlinePlus pulse information](https://medlineplus.gov/ency/article/003399.htm).
 
-## Appointment schedule assumption
+## WhatsApp and visit reminders
 
-Doctor availability is not currently configured in the database. For this simple version, every doctor has 30-minute slots from 9:00 AM to 5:00 PM Cairo time. Each slot can be requested once. The unique database index protects against two users booking the same slot concurrently. A request is not a confirmation from the doctor. Update this default when real doctor schedules are supplied.
+WhatsApp buttons become active when an admin adds a real number in international format, such as `+20 100 123 4567`. The app removes formatting and opens a `wa.me` link; a contact still needs WhatsApp enabled on that number. A saved visit reminder is private to the user and does not reserve a doctor slot or send a booking request.
 
 ## Add real catalogue data later
 
-Doctor and pharmacy records are stored in the `Doctors` and `Pharmacies` tables. WhatsApp values must be valid international numbers containing digits only, without a `+` prefix or punctuation; the app does not guess country codes. Existing legacy rows marked `PENDING` are hidden, not deleted. Meal records are in `Meals`. Exercise video records are in `Exercises`; only HTTPS YouTube watch, Shorts, or `youtu.be` links with valid video IDs are embedded. No sample catalogue records are generated.
+Doctor and pharmacy records are stored in the `Doctors` and `Pharmacies` tables. The Admin Dashboard manages these records and validates international WhatsApp numbers. Meal records are in `Meals`. Exercise video records are in `Exercises`; only HTTPS YouTube watch, Shorts, or `youtu.be` links with valid video IDs are embedded. Existing records are preserved.
 
 ## API routes
 
@@ -117,18 +130,18 @@ Doctor and pharmacy records are stored in the `Doctors` and `Pharmacies` tables.
 | `GET /api/dashboard` | Current user's overview |
 | `/api/healthmeasurements` | Read, add, update, and delete the current user's measurements |
 | `GET /api/bmi`, `PUT /api/bmi` | Read and update height/weight BMI inputs |
-| `/api/appointments` | Read and request the current user's appointments |
-| `GET /api/appointments/availability?doctorId=1&date=YYYY-MM-DD` | List free Cairo-time slots |
+| `/api/appointments` | Create, read, edit, or delete the current user's personal visit reminders |
 | `/api/export/measurements/xlsx` | Download the signed-in user's measurement workbook |
 | `/api/medications`, `/api/medicalrecords`, `/api/labresults`, `/api/fitness` | Current user's health and activity records |
 | `GET /api/doctors`, `GET /api/pharmacies?search=` | Public doctor and pharmacy catalogues |
 | `GET /api/meals`, `GET /api/exercises` | Public meal and exercise-video catalogues |
+| `/api/admin/*` | Admin-only doctor, pharmacy, and exercise-video catalogue management |
 
 Chat and personal calorie/macro logging have been removed from the active API and interface. Their existing database tables are retained so old records are not automatically deleted.
 
 ## Database migrations
 
-Migrations are in `backend/Migrations/`. `backend/Data/AppDbContextFactory.cs` lets EF Core create migrations without starting the API or applying them to the configured database. Schema updates only add catalogue/context data and the appointment uniqueness constraint; existing nutrition, chat, and activity calorie columns are retained for data compatibility.
+Migrations are in `backend/Migrations/`. `backend/Data/AppDbContextFactory.cs` lets EF Core create migrations without starting the API or applying them to the configured database. The latest migration adds the user role and removes global appointment-slot uniqueness because these are personal reminders, not reservations; existing health records are retained.
 
 ## Project layout
 

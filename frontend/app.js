@@ -60,7 +60,7 @@ async function api(path, opt = {}) {
 }
 
 function auth(reg = false) {
-  app.innerHTML = `<div class="auth-screen">${languageButton()}<section class="auth-art"><div class="logo">Sehaty<b>+</b></div><div><h1>Your health,<br>in one place.</h1><p>Track your measurements, manage your medications, and book your doctor appointments. Simple steps for better health.</p></div><small>Sehaty+ · Your daily health companion</small></section><section class="auth-card"><div class="logo" style="color:#123f3e">Sehaty<b>+</b></div><h2>${reg ? "Create your account" : "Welcome back 👋"}</h2><p>Track your health and daily data</p><form id="authForm">${reg ? '<div class="field"><label>Full Name</label><input name="fullName" required></div>' : ""}<div class="field"><label>Email</label><input name="email" type="email" required></div><div class="field"><label>Password</label><input name="password" type="password" required minlength="8"></div>${reg ? '<div class="field"><label>Date of Birth</label><input name="dateOfBirth" type="date" required></div><div class="field"><label>Gender</label><select name="gender"><option value="">Select</option><option>Female</option><option>Male</option><option>Prefer not to say</option></select></div>' : ""}<div id="err"></div><button class="btn block">${reg ? "Create Account" : "Sign In"}</button></form><div class="auth-foot">${reg ? "Already have an account?" : "Don't have an account?"} <span class="link" onclick="go('${reg ? "login" : "register"}')">${reg ? "Sign In" : "Create Account"}</span></div>${!reg ? '<div class="auth-foot">Demo account: demo@sehaty.com · Demo123!</div>' : ""}</section></div>`;
+  app.innerHTML = `<div class="auth-screen">${languageButton()}<section class="auth-art"><div class="logo">Sehaty<b>+</b></div><div><h1>Your health,<br>in one place.</h1><p>Track your measurements, manage your medications, and keep your health information organized in one place.</p></div><small>Sehaty+ · Your daily health companion</small></section><section class="auth-card"><div class="logo" style="color:#123f3e">Sehaty<b>+</b></div><h2>${reg ? "Create your account" : "Welcome back 👋"}</h2><p>Track your health and daily data</p><form id="authForm">${reg ? '<div class="field"><label>Full Name</label><input name="fullName" required></div>' : ""}<div class="field"><label>Email</label><input name="email" type="email" required></div><div class="field"><label>Password</label><input name="password" type="password" required minlength="8"></div>${reg ? '<div class="field"><label>Date of Birth</label><input name="dateOfBirth" type="date" required></div><div class="field"><label>Gender</label><select name="gender"><option value="">Select</option><option>Female</option><option>Male</option><option>Prefer not to say</option></select></div>' : ""}<div id="err"></div><button class="btn block">${reg ? "Create Account" : "Sign In"}</button></form><div class="auth-foot">${reg ? "Already have an account?" : "Don't have an account?"} <span class="link" onclick="go('${reg ? "login" : "register"}')">${reg ? "Sign In" : "Create Account"}</span></div>${!reg ? '<div class="auth-foot"><span>Demo account: demo@sehaty.com · Demo123!</span><br><span>Admin demo account: admin@sehaty.com · Admin123!</span><br><button class="btn light" type="button" onclick="fillAdminDemo()">Use Admin Demo Login</button></div>' : ""}</section></div>`;
   window.SehtyI18n?.applyLanguage();
   document.querySelector("#authForm").onsubmit = async (e) => {
     e.preventDefault();
@@ -79,13 +79,20 @@ function auth(reg = false) {
         });
         localStorage.token = r.token;
         localStorage.user = JSON.stringify(r.user);
-        go("dashboard");
+        go(r.user.role === "Admin" ? "admin" : "dashboard");
       }
     } catch (x) {
       document.querySelector("#err").innerHTML =
         `<div class="notice">${esc(x.message)}</div>`;
     }
   };
+}
+
+function fillAdminDemo() {
+  const form = document.querySelector("#authForm");
+  if (!form) return;
+  form.elements.namedItem("email").value = "admin@sehaty.com";
+  form.elements.namedItem("password").value = "Admin123!";
 }
 
 const nav = [
@@ -95,7 +102,7 @@ const nav = [
   ["fitness", "↗", "Activity & Exercises"],
   ["medications", "✚", "Medications"],
   ["records", "▤", "Medical Records"],
-  ["doctors", "⚕", "Doctors & Appointments"],
+  ["doctors", "⚕", "Doctors & Visit Reminders"],
   ["pharmacies", "⌖", "Pharmacies"],
   ["meals", "🍽", "Healthy Meals"],
 ];
@@ -109,7 +116,8 @@ function signOut() {
 }
 
 function shell(title, subtitle, html) {
-  app.innerHTML = `<aside class="sidebar"><div class="logo">Sehaty<b>+</b></div><div class="nav-label">Main Menu</div>${nav.map(([id, i, n]) => `<a class="nav-item ${page === id ? "active" : ""}" href="#${id}"><i>${i}</i>${n}</a>`).join("")}<div class="sidebar-bottom">Your health data is private.<br>Track it regularly.</div><a class="nav-item" href="#logout"><i>↪</i>Sign Out</a></aside><main class="main"><header class="topbar"><div class="welcome"><h1>${title}</h1><p>${subtitle || ""}</p></div><div class="top-actions">${languageButton()}<div class="profile"><div class="avatar">${esc((me().fullName || "U")[0])}</div><div><b>${esc(me().fullName || "User")}</b><small>Personal Account</small></div></div><button class="signout-btn" onclick="signOut()" title="Sign Out" aria-label="Sign Out">↪ Sign Out</button></div></header>${html}</main>`;
+  const menu = me().role === "Admin" ? [["admin", "⚙", "Admin Dashboard"]] : nav;
+  app.innerHTML = `<aside class="sidebar"><div class="logo">Sehaty<b>+</b></div><div class="nav-label">Main Menu</div>${menu.map(([id, i, n]) => `<a class="nav-item ${page === id ? "active" : ""}" href="#${id}"><i>${i}</i>${n}</a>`).join("")}<div class="sidebar-bottom">Your health data is private.<br>Track it regularly.</div><a class="nav-item" href="#logout"><i>↪</i>Sign Out</a></aside><main class="main"><header class="topbar"><div class="welcome"><h1>${title}</h1><p>${subtitle || ""}</p></div><div class="top-actions">${languageButton()}<div class="profile"><div class="avatar">${esc((me().fullName || "U")[0])}</div><div><b>${esc(me().fullName || "User")}</b><small>${me().role === "Admin" ? "Administrator" : "Personal Account"}</small></div></div><button class="signout-btn" onclick="signOut()" title="Sign Out" aria-label="Sign Out">↪ Sign Out</button></div></header>${html}</main>`;
   window.SehtyI18n?.applyLanguage();
 }
 
@@ -188,7 +196,7 @@ async function dashboard() {
       </div>` : `
       <div class="empty">Update your height and weight to see your BMI.</div>`}
       <button class="btn light" style="width:100%;margin-top:10px" onclick="bmiModal()">Update Details</button>
-    </section><section class="panel"><div class="panel-head"><h3>Next Appointment</h3><a class="link" href="#doctors">Book</a></div>${next ? `<div class="record"><div><div class="record-main">${esc(next.doctor?.name)}</div><div class="record-sub">${esc(next.doctor?.specialization)}</div></div><span class="record-value">${date(next.appointmentDate)}</span><span class="record-time">${time(next.appointmentDate)}</span></div>` : '<div class="empty">No upcoming appointments.</div>'}</section><section class="panel"><div class="panel-head"><h3>Quick Actions</h3></div><div class="quick-grid"><button class="quick" onclick="modal('measurement')"><b>＋</b>New Measurement</button><button class="quick" onclick="go('medications')"><b>＋</b>Add Medication</button><button class="quick" onclick="go('doctors')"><b>＋</b>Book Doctor</button><button class="quick" onclick="go('bmi')"><b>＋</b>Check BMI</button></div></section></div></div>`,
+    </section><section class="panel"><div class="panel-head"><h3>Next Visit Reminder</h3><a class="link" href="#doctors">Doctors</a></div>${next ? `<div class="record"><div><div class="record-main">${esc(next.doctor?.name)}</div><div class="record-sub">${esc(next.doctor?.specialization)}</div></div><span class="record-value">${date(next.appointmentDate)}</span><span class="record-time">${time(next.appointmentDate)}</span></div>` : '<div class="empty">No upcoming visit reminders.</div>'}</section><section class="panel"><div class="panel-head"><h3>Quick Actions</h3></div><div class="quick-grid"><button class="quick" onclick="modal('measurement')"><b>＋</b>New Measurement</button><button class="quick" onclick="go('medications')"><b>＋</b>Add Medication</button><button class="quick" onclick="go('doctors')"><b>＋</b>Find a Doctor</button><button class="quick" onclick="go('bmi')"><b>＋</b>Check BMI</button></div></section></div></div>`,
   );
 }
 
@@ -477,47 +485,36 @@ async function records() {
 
 function whatsAppUrl(phone) {
   if (!phone || phone === "PENDING") return null;
-  const digits = String(phone).replace(/\D/g, "");
+  let digits = String(phone).replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (digits.startsWith("01") && digits.length === 11) digits = `2${digits}`;
   return /^[1-9]\d{6,14}$/.test(digits) ? `https://wa.me/${digits}` : null;
 }
 
 async function doctors() {
   let [d, a] = await Promise.all([api("/doctors"), api("/appointments")]);
   shell(
-    "Doctors & Appointments",
-    "Learn about specialties and book a time.",
+    "Doctors & Visit Reminders",
+    "Contact a doctor through WhatsApp or save a personal visit reminder.",
     `<div class="page-title"><h2>Doctors</h2></div><div class="cards-grid">${d.map((x) => {
       let waUrl = whatsAppUrl(x.whatsAppPhone);
 
-      return `<article class="doctor-card"><div class="doctor-head"><div class="doctor-avatar">⚕</div><div><h3>${esc(x.name)}</h3><p>${esc(x.specialization)}</p></div></div><p>${esc(x.description || "Health consultations and follow-up")}</p><p>☎ ${esc(x.phone || "Contact clinic")}</p><button class="btn" onclick="book(${x.id},'${esc(x.name)}')">Book Appointment</button>
-      ${waUrl ? `<a class="btn light" target="_blank" rel="noopener noreferrer" href="${waUrl}">WhatsApp</a>` : `<button class="btn light" disabled title="A verified international WhatsApp number has not been provided">WhatsApp unavailable</button>`}</article>`
-    }).join("")}</div><section class="panel" style="margin-top:16px"><div class="panel-head"><h3>My Appointments</h3></div>${a.map((x) => `<div class="record"><div><div class="record-main">${esc(x.doctor?.name)}</div><div class="record-sub">${esc(x.doctor?.specialization)} · ${esc(x.status)}</div></div><span class="record-value">${date(x.appointmentDate)}</span><span class="record-time">${time(x.appointmentDate)}</span></div>`).join("") || '<div class="empty">No appointments booked.</div>'}</section>`,
+      return `<article class="doctor-card"><div class="doctor-head"><div class="doctor-avatar">⚕</div><div><h3>${esc(x.name)}</h3><p>${esc(x.specialization)}</p></div></div><p>${esc(x.description || "Health consultations and follow-up")}</p><p>☎ ${esc(x.phone || "Contact clinic")}</p><button class="btn" onclick="book(${x.id},'${esc(x.name)}')">Save Visit Reminder</button>
+      ${waUrl ? `<a class="btn light" target="_blank" rel="noopener noreferrer" href="${waUrl}">WhatsApp</a>` : `<button class="btn light" disabled title="A verified international WhatsApp number has not been provided">WhatsApp number not added</button>`}</article>`
+    }).join("")}</div><section class="panel" style="margin-top:16px"><div class="panel-head"><h3>My Visit Reminders</h3></div><p>This is a personal reminder only. It does not contact the doctor or confirm an appointment.</p>${a.map((x) => `<div class="record"><div><div class="record-main">${esc(x.doctor?.name)}</div><div class="record-sub">${esc(x.doctor?.specialization)} · Personal reminder</div></div><span class="record-value">${date(x.appointmentDate)}</span><span class="record-time">${time(x.appointmentDate)}</span><button class="btn danger" onclick="del('/appointments/${x.id}')">Delete</button></div>`).join("") || '<div class="empty">No visit reminders saved.</div>'}</section>`,
   );
-}
-
-async function loadAppointmentSlots(doctorId) {
-  const dateInput = document.querySelector("#appointmentDate");
-  const slotSelect = document.querySelector("#appointmentSlot");
-  if (!dateInput || !slotSelect || !dateInput.value) return;
-  slotSelect.innerHTML = '<option value="">Loading available times…</option>';
-  try {
-    const slots = await api(`/appointments/availability?doctorId=${doctorId}&date=${dateInput.value}`);
-    slotSelect.innerHTML = slots.length
-      ? '<option value="">Select an available time</option>' + slots.map(x => `<option value="${esc(x.appointmentDate)}">${esc(time(x.appointmentDate))}</option>`).join("")
-      : '<option value="">No times available for this date</option>';
-  } catch (error) {
-    slotSelect.innerHTML = '<option value="">Could not load availability</option>';
-    document.querySelector("#bookingError").textContent = error.message;
-  }
 }
 
 function book(id, name) {
+  const localDateTime = new Date(Date.now() + 60 * 60 * 1000);
+  localDateTime.setMinutes(0, 0, 0);
+  const minDateTime = new Date(Date.now() + 60 * 1000);
+  minDateTime.setMinutes(minDateTime.getMinutes() - minDateTime.getTimezoneOffset());
+  localDateTime.setMinutes(localDateTime.getMinutes() - localDateTime.getTimezoneOffset());
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<div class="modal-bg" onclick="if(event.target===this)this.remove()"><form class="modal" id="booking"><h3>Request an appointment with ${esc(name)}</h3><p>Default schedule: 9:00 AM–5:00 PM Cairo time, in 30-minute slots. A request is not a doctor confirmation.</p><div class="field"><label for="appointmentDate">Date</label><input id="appointmentDate" type="date" min="${today()}" value="${today()}" required></div><div class="field"><label for="appointmentSlot">Available time</label><select id="appointmentSlot" required><option value="">Choose a date first</option></select></div><div class="field"><label for="appointmentNotes">Notes for doctor (optional)</label><textarea id="appointmentNotes" name="notes"></textarea></div><div id="bookingError"></div><button class="btn">Request Booking</button> <button type="button" class="btn ghost" onclick="document.querySelector('.modal-bg').remove()">Cancel</button></form></div>`,
+    `<div class="modal-bg" onclick="if(event.target===this)this.remove()"><form class="modal" id="booking"><h3>Save a visit reminder for ${esc(name)}</h3><p>This saves a reminder in your account only. It does not book, message, or notify the doctor.</p><div class="field"><label for="appointmentDate">Planned date and time</label><input id="appointmentDate" type="datetime-local" min="${minDateTime.toISOString().slice(0,16)}" value="${localDateTime.toISOString().slice(0,16)}" required></div><div class="field"><label for="appointmentNotes">Personal note (optional)</label><textarea id="appointmentNotes" name="notes"></textarea></div><div id="bookingError"></div><button class="btn">Save Reminder</button> <button type="button" class="btn ghost" onclick="document.querySelector('.modal-bg').remove()">Cancel</button></form></div>`,
   );
-  document.querySelector("#appointmentDate").onchange = () => loadAppointmentSlots(id);
-  loadAppointmentSlots(id);
   document.querySelector("#booking").onsubmit = async (e) => {
     e.preventDefault();
     const form = new FormData(e.target);
@@ -526,7 +523,7 @@ function book(id, name) {
         method: "POST",
         body: JSON.stringify({
           doctorId: id,
-          appointmentDate: document.querySelector("#appointmentSlot").value,
+          appointmentDate: new Date(document.querySelector("#appointmentDate").value).toISOString(),
           notes: form.get("notes"),
         }),
       });
@@ -534,7 +531,6 @@ function book(id, name) {
       doctors();
     } catch (error) {
       document.querySelector("#bookingError").innerHTML = `<div class="notice">${esc(error.message)}</div>`;
-      loadAppointmentSlots(id);
     }
   };
 }
@@ -576,6 +572,73 @@ async function meals() {
 
 async function exercises() { return fitness(); }
 
+let adminCatalog = { doctors: [], pharmacies: [], exercises: [] };
+
+async function admin() {
+  if (me().role !== "Admin") {
+    shell("Access restricted", "This area is for administrators.", '<section class="panel"><div class="notice">Your account does not have administrator access.</div></section>');
+    return;
+  }
+  const [summary, doctorsList, pharmaciesList, exerciseList] = await Promise.all([
+    api("/admin/dashboard"), api("/admin/doctors"), api("/admin/pharmacies"), api("/admin/exercises")
+  ]);
+  adminCatalog = { doctors: doctorsList, pharmacies: pharmaciesList, exercises: exerciseList };
+  const list = (type, records) => records.map(x => `<div class="record"><div><div class="record-main">${esc(x.name)}</div><div class="record-sub">${esc(type === "doctors" ? `${x.specialization} · ${x.whatsAppPhone || "WhatsApp not set"}` : `${x.address} · ${x.whatsAppPhone || "WhatsApp not set"}`)}</div></div><button class="btn light" onclick="editCatalog('${type}',${x.id})">Edit</button><button class="btn danger" onclick="deleteCatalog('${type}',${x.id})">Delete</button></div>`).join("") || '<div class="empty">No records yet.</div>';
+  shell("Admin Dashboard", "Manage the public doctor, pharmacy, and exercise catalogues.",
+    `<div class="metrics">${metric("Users", summary.users, "", "♙", "Registered accounts")}${metric("Doctors", summary.doctors, "", "⚕", "In catalogue")}${metric("Pharmacies", summary.pharmacies, "", "✚", "In catalogue")}${metric("Workout videos", summary.exerciseVideos, "", "▶", "In catalogue")}</div>
+    <section class="panel"><div class="panel-head"><h3>Manage Doctors</h3></div><p>Add a verified WhatsApp phone in international format (example: +20 100 123 4567). The app cannot invent or verify contacts for you.</p>
+      <form id="admin-doctors-form" onsubmit="adminSubmit('doctors',event)"><input type="hidden" name="id"><div class="cards-grid">
+      <div class="field"><label>Name</label><input name="name" required maxlength="120"></div><div class="field"><label>Specialization</label><input name="specialization" required maxlength="120"></div><div class="field"><label>Phone</label><input name="phone"></div><div class="field"><label>WhatsApp (country code required)</label><input name="whatsAppPhone" placeholder="+20 100 123 4567" required></div><div class="field"><label>Email</label><input name="email" type="email"></div><div class="field"><label>Description</label><input name="description"></div></div><button class="btn" type="submit">Save Doctor</button> <button class="btn ghost" type="button" onclick="resetCatalogForm('doctors')">Clear</button></form>${list("doctors", doctorsList)}</section>
+    <section class="panel"><div class="panel-head"><h3>Manage Pharmacies</h3></div><form id="admin-pharmacies-form" onsubmit="adminSubmit('pharmacies',event)"><input type="hidden" name="id"><div class="cards-grid">
+      <div class="field"><label>Name</label><input name="name" required maxlength="120"></div><div class="field"><label>Address</label><input name="address" required maxlength="300"></div><div class="field"><label>Phone</label><input name="phone"></div><div class="field"><label>WhatsApp (country code required)</label><input name="whatsAppPhone" placeholder="+20 100 123 4567" required></div><div class="field"><label>Opening hours</label><input name="openingHours"></div></div><button class="btn" type="submit">Save Pharmacy</button> <button class="btn ghost" type="button" onclick="resetCatalogForm('pharmacies')">Clear</button></form>${list("pharmacies", pharmaciesList)}</section>
+    <section class="panel"><div class="panel-head"><h3>Exercise Video Titles</h3></div><p>Correct generic titles and descriptions so the displayed names match the linked videos.</p><form id="admin-exercises-form" onsubmit="adminSubmit('exercises',event)"><div class="cards-grid"><div class="field"><label>Video title</label><input name="name" required></div><div class="field"><label>YouTube URL</label><input name="youtubeUrl" type="url" placeholder="https://youtu.be/..." required></div><div class="field"><label>Description</label><input name="description"></div><div class="field"><label>Category</label><input name="category" value="Workout"></div></div><button class="btn" type="submit">Add Video</button></form>${exerciseList.map(x => `<form class="record" onsubmit="saveExercise(${x.id},event)"><div class="field"><label>Video title</label><input name="name" value="${esc(x.name)}" required></div><div class="field"><label>YouTube URL</label><input name="youtubeUrl" value="${esc(x.youtubeUrl || "")}" type="url" required></div><div class="field"><label>Description</label><input name="description" value="${esc(x.description || "")}"></div><button class="btn" type="submit">Save</button></form>`).join("") || '<div class="empty">No workout videos have been added.</div>'}</section>`);
+}
+
+function resetCatalogForm(type) {
+  document.querySelector(`#admin-${type}-form`)?.reset();
+  const hidden = document.querySelector(`#admin-${type}-form [name=id]`);
+  if (hidden) hidden.value = "";
+}
+
+function editCatalog(type, id) {
+  const form = document.querySelector(`#admin-${type}-form`);
+  const item = adminCatalog[type].find(x => x.id === id);
+  if (!form || !item) return;
+  for (const [key, value] of Object.entries(item)) {
+    const input = form.elements.namedItem(key);
+    if (input) input.value = value ?? "";
+  }
+  form.elements.namedItem("id").value = id;
+  form.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+async function adminSubmit(type, event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form));
+  const id = data.id;
+  delete data.id;
+  for (const key of Object.keys(data)) if (!data[key]) data[key] = null;
+  try {
+    await api(`/admin/${type}${id ? `/${id}` : ""}`, { method: id ? "PUT" : "POST", body: JSON.stringify(data) });
+    await admin();
+  } catch (error) { alert(error.message); }
+}
+
+async function saveExercise(id, event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  for (const key of Object.keys(data)) if (!data[key]) data[key] = null;
+  try { await api(`/admin/exercises/${id}`, { method: "PUT", body: JSON.stringify(data) }); await admin(); }
+  catch (error) { alert(error.message); }
+}
+
+async function deleteCatalog(type, id) {
+  if (!confirm("Delete this catalogue entry?")) return;
+  try { await api(`/admin/${type}/${id}`, { method: "DELETE" }); await admin(); }
+  catch (error) { alert(error.message); }
+}
+
 async function del(url) {
   if (confirm("Delete this record?")) {
     await api(url, { method: "DELETE" });
@@ -597,6 +660,10 @@ async function view() {
     auth();
     return;
   }
+  if (me().role === "Admin" && page !== "admin") {
+    go("admin");
+    return;
+  }
   try {
     await (
       {
@@ -609,7 +676,8 @@ async function view() {
         doctors,
         pharmacies,
         meals,
-        exercises: fitness
+        exercises: fitness,
+        admin
       }[page] || dashboard
     )();
   } catch (e) {

@@ -22,6 +22,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.Entity<User>().HasIndex(x => x.Email).IsUnique();
+        b.Entity<User>().Property(x => x.Role).HasDefaultValue("User");
         b.Entity<User>().Property(x => x.Height).HasPrecision(6, 2);
         b.Entity<User>().Property(x => x.Weight).HasPrecision(6, 2);
         b.Entity<HealthMeasurement>().Property(x => x.Weight).HasPrecision(6, 2);
@@ -44,9 +45,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany()
             .HasForeignKey(x => x.DoctorId)
             .OnDelete(DeleteBehavior.Restrict);
-        b.Entity<Appointment>()
-            .HasIndex(x => new { x.DoctorId, x.AppointmentDate })
-            .IsUnique();
         b.Entity<Meal>()
             .HasOne(x => x.User)
             .WithMany()

@@ -96,6 +96,31 @@ using (var scope = app.Services.CreateScope())
 
     await db.Database.MigrateAsync();
 
+    var adminEmail = builder.Configuration["Admin:Email"]?.Trim();
+    var adminPassword = builder.Configuration["Admin:Password"];
+    if (!string.IsNullOrWhiteSpace(adminEmail))
+    {
+        var admin = await db.Users.SingleOrDefaultAsync(x => x.Email == adminEmail);
+        if (admin is null && !string.IsNullOrWhiteSpace(adminPassword))
+        {
+            admin = new User
+            {
+                FullName = "Application Administrator",
+                Email = adminEmail,
+                DateOfBirth = new DateTime(1990, 1, 1),
+                Role = "Admin"
+            };
+            admin.PasswordHash = new PasswordHasher<User>().HashPassword(admin, adminPassword);
+            db.Users.Add(admin);
+            await db.SaveChangesAsync();
+        }
+        else if (admin is not null && admin.Role != "Admin")
+        {
+            admin.Role = "Admin";
+            await db.SaveChangesAsync();
+        }
+    }
+
     if (!await db.Users.AnyAsync(x => x.Email == "demo@sehaty.com"))
     {
         var demo = new User
@@ -106,6 +131,26 @@ using (var scope = app.Services.CreateScope())
         };
         demo.PasswordHash = new PasswordHasher<User>().HashPassword(demo, "Demo123!");
         db.Users.Add(demo);
+        await db.SaveChangesAsync();
+    }
+
+    var demoAdmin = await db.Users.SingleOrDefaultAsync(x => x.Email == "admin@sehaty.com");
+    if (demoAdmin is null)
+    {
+        demoAdmin = new User
+        {
+            FullName = "Demo Administrator",
+            Email = "admin@sehaty.com",
+            DateOfBirth = new DateTime(1990, 1, 1),
+            Role = "Admin"
+        };
+        demoAdmin.PasswordHash = new PasswordHasher<User>().HashPassword(demoAdmin, "Admin123!");
+        db.Users.Add(demoAdmin);
+        await db.SaveChangesAsync();
+    }
+    else if (demoAdmin.Role != "Admin")
+    {
+        demoAdmin.Role = "Admin";
         await db.SaveChangesAsync();
     }
 

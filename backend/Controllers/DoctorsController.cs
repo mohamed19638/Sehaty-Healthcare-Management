@@ -10,14 +10,13 @@ public class DoctorsController(AppDbContext db) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get() => Ok(await db.Doctors
         .AsNoTracking()
-        .Where(x => x.WhatsAppPhone != "PENDING")
         .ToListAsync());
 
     [HttpGet("{id:int}")]
     public async Task<IActionResult> Get(int id)
     {
         var doctor = await db.Doctors.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == id && x.WhatsAppPhone != "PENDING");
+            .FirstOrDefaultAsync(x => x.Id == id);
         return doctor is null ? NotFound() : Ok(doctor);
     }
 }

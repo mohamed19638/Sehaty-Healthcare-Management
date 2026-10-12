@@ -10,7 +10,7 @@ public class PharmaciesController(AppDbContext db) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get([FromQuery] string? search)
     {
-        var query = db.Pharmacies.AsNoTracking().Where(x => x.WhatsAppPhone != "PENDING");
+        var query = db.Pharmacies.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(x => x.Name.Contains(search) || x.Address.Contains(search));
         return Ok(await query.ToListAsync());
@@ -20,7 +20,7 @@ public class PharmaciesController(AppDbContext db) : ControllerBase
     public async Task<IActionResult> Get(int id)
     {
         var pharmacy = await db.Pharmacies.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == id && x.WhatsAppPhone != "PENDING");
+            .FirstOrDefaultAsync(x => x.Id == id);
         return pharmacy is null ? NotFound() : Ok(pharmacy);
     }
 }

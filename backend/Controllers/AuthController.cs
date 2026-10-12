@@ -63,6 +63,7 @@ public class AuthController(AppDbContext db, IConfiguration configuration) : Con
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.FullName),
             new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.Role, user.Role),
         };
         var signingKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!)
@@ -81,6 +82,7 @@ public class AuthController(AppDbContext db, IConfiguration configuration) : Con
                     user.Id,
                     user.FullName,
                     user.Email,
+                    user.Role,
                 },
             }
         );

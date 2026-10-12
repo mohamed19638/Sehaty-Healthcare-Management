@@ -29,15 +29,15 @@ public class DashboardController(AppDbContext db) : ControllerBase
             {
                 x.Id,
                 x.AppointmentDate,
-                x.Status,
+                Status = "Personal reminder",
                 x.Notes,
                 x.DoctorId,
                 doctor = new
                 {
-                    name = x.Doctor.WhatsAppPhone == "PENDING" ? "Legacy sample entry" : x.Doctor.Name,
-                    specialization = x.Doctor.WhatsAppPhone == "PENDING" ? "Legacy appointment" : x.Doctor.Specialization,
-                    phone = x.Doctor.WhatsAppPhone == "PENDING" ? null : x.Doctor.Phone,
-                    whatsAppPhone = x.Doctor.WhatsAppPhone == "PENDING" ? null : x.Doctor.WhatsAppPhone,
+                    name = x.Doctor.Name,
+                    specialization = x.Doctor.Specialization,
+                    phone = x.Doctor.Phone,
+                    whatsAppPhone = x.Doctor.WhatsAppPhone,
                 },
             })
             .ToListAsync();
