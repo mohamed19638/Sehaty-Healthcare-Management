@@ -52,14 +52,24 @@ html[dir="rtl"] .record-time {
   direction: ltr;
 }
 
-html[dir="rtl"] .chart-wrap,
 html[dir="rtl"] .source-links,
 html[dir="rtl"] .record-time,
-html[dir="rtl"] .reference-ranges {
+html[dir="rtl"] .reference-ranges,
+html[dir="rtl"] .chart-legend {
   direction: rtl;
 }
 
 html[dir="rtl"] .chart-wrap {
+  text-align: right;
+}
+
+html[dir="rtl"] .record-main {
+  direction: ltr;
+  text-align: right;
+  unicode-bidi: isolate;
+}
+
+html[dir="rtl"] .record-sub {
   text-align: right;
 }
 

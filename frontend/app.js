@@ -154,7 +154,7 @@ function chart(rows) {
           ps = vv.map((v, i) =>
             Number.isFinite(v)
               ? [
-                  p + (i * (w - 2 * p)) / (a.length - 1),
+                  a.length === 1 ? w / 2 : p + (i * (w - 2 * p)) / (a.length - 1),
                   h -
                     p -
                     (hi === lo ? 0.5 : (v - lo) / (hi - lo)) * (h - 2 * p),
@@ -166,10 +166,10 @@ function chart(rows) {
             .filter(Boolean)
             .join(" ");
         const trendLine = valid.length > 1 ? `<path d="${d}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : "";
-        return `${trendLine}${ps.map((q, i) => { if (!q) return ""; const abnormal = statusKey && isAbnormalStatus(a[i][statusKey]); const pointColor = abnormal ? "#dc2626" : color; return `<circle cx="${q[0]}" cy="${q[1]}" r="${abnormal ? 6 : 4}" fill="${abnormal ? "#fee2e2" : "white"}" stroke="${pointColor}" stroke-width="3"><title>${name}: ${get(a[i])} · ${date(a[i].date)} ${time(a[i].date)} · ${a[i][statusKey] || ""}</title></circle>`; }).join("")}`;
+        return `${trendLine}${ps.map((q, i) => { if (!q) return ""; const abnormal = statusKey && isAbnormalStatus(a[i][statusKey]); const unclassified = statusKey && isUnclassifiedStatus(a[i][statusKey]); const pointColor = abnormal ? "#dc2626" : unclassified ? "#d99119" : color; const pointFill = abnormal ? "#fee2e2" : unclassified ? "#fff4d6" : "white"; return `<circle cx="${q[0]}" cy="${q[1]}" r="${abnormal || unclassified ? 6 : 4}" fill="${pointFill}" stroke="${pointColor}" stroke-width="3"><title>${name}: ${get(a[i])} · ${date(a[i].date)} ${time(a[i].date)} · ${a[i][statusKey] || ""}</title></circle>`; }).join("")}`;
       })
       .join("");
-  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${[0.2, 0.5, 0.8].map((y) => `<line class="chart-grid" x1="${p}" x2="${w - p}" y1="${h * y}" y2="${h * y}"/>`).join("")}${lines}</svg><div class="chart-legend"><span>Pulse</span><span>Sugar</span><span>Weight (kg)</span><span>Systolic BP</span><span style="color:#dc2626">● Outside reference range</span></div>`;
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${[0.2, 0.5, 0.8].map((y) => `<line class="chart-grid" x1="${p}" x2="${w - p}" y1="${h * y}" y2="${h * y}"/>`).join("")}${lines}</svg><div class="chart-legend"><span>Pulse</span><span>Sugar</span><span>Weight (kg)</span><span>Systolic BP</span><span class="context-legend">Needs context</span><span class="abnormal-legend">Outside reference range</span></div>`;
 }
 
 function isAbnormalStatus(status) {
@@ -178,31 +178,82 @@ function isAbnormalStatus(status) {
   return ["outside", "above", "below", "low", "high", "elevated"].some(x => value.includes(x));
 }
 
+function isUnclassifiedStatus(status) {
+  const value = String(status || "").toLowerCase();
+  return !value || ["not classified", "not recorded", "invalid", "adult reference categories do not apply"].some(x => value.includes(x));
+}
+
+function measurementObservations(row) {
+  return [
+    ["Blood pressure", row.bloodPressure, row.bloodPressureStatus],
+    ["Blood sugar", row.bloodSugar, row.bloodSugarStatus],
+    ["Heart rate", row.heartRate, row.heartRateStatus],
+  ].filter(([, value]) => value !== null && value !== undefined);
+}
+
+function measurementAssessmentType(row) {
+  const observations = measurementObservations(row);
+  if (observations.some(([, , status]) => isAbnormalStatus(status))) return "danger";
+  if (!observations.length || observations.some(([, , status]) => isUnclassifiedStatus(status))) return "caution";
+  return "normal";
+}
+
+function measurementStatusMarkup(row) {
+  const items = measurementObservations(row);
+  if (!items.length) return "Recorded reading";
+  return `<span class="measurement-status">${items.map(([name, , status]) => {
+    const tone = isAbnormalStatus(status) ? "abnormal" : isUnclassifiedStatus(status) ? "unclassified" : "within-range";
+    return `<span class="measurement-status-item ${tone}"><b>${name}:</b> <bdi>${esc(status || "Not assessed")}</bdi></span>`;
+  }).join("")}</span>`;
+}
+
+let latestHealthReading = null;
+function reviewLatestMeasurement() {
+  if (latestHealthReading) showMeasurementAlert(latestHealthReading);
+}
+
 async function showMeasurementAlert(measurement) {
-  const flagged = [
-    ["Blood pressure", measurement.bloodPressure, measurement.bloodPressureStatus],
-    ["Blood sugar", measurement.bloodSugar, measurement.bloodSugarStatus],
-    ["Heart rate", measurement.heartRate, measurement.heartRateStatus],
-  ].filter(([, value, status]) => value != null && isAbnormalStatus(status));
-  if (!flagged.length) return;
+  const observations = measurementObservations(measurement);
+  const flagged = observations.filter(([, , status]) => isAbnormalStatus(status));
+  const unclassified = observations.filter(([, , status]) => isUnclassifiedStatus(status));
+  const hasVitals = observations.length > 0;
+  const resultType = measurementAssessmentType(measurement);
+  const heading = resultType === "danger"
+    ? "Reading outside the usual reference range"
+    : resultType === "caution"
+      ? "Some readings need context before they can be assessed"
+      : "Your readings are within the usual reference ranges";
+  const explanation = resultType === "danger"
+    ? "One or more results may need attention. These adult screening references are not a diagnosis. Repeat the measurement correctly and contact a healthcare professional for advice."
+    : resultType === "caution"
+      ? hasVitals
+        ? "Some readings cannot be compared with the usual reference yet. Blood sugar needs its fasting status, and pulse needs to be measured after resting. Adult reference categories do not apply to people under 18."
+        : "Your measurement was saved. Add blood pressure, blood sugar, or heart rate to see a reference-range assessment. Weight is reviewed separately on the BMI page."
+      : "The readings you entered are within the usual reference ranges used by this app. A normal screening result does not rule out a health concern or replace medical advice.";
   let rows = [measurement];
   try { rows = await api("/healthmeasurements"); } catch { }
   const warning = document.createElement("div");
-  warning.className = "modal-bg";
-  warning.innerHTML = `<section class="modal" role="alertdialog" aria-modal="true" style="border:2px solid #dc2626"><h3 style="color:#b91c1c">⚠ Health reading outside the usual reference range</h3><p>One or more results may need attention. This is a screening reference, not a diagnosis. Repeat the measurement correctly and contact a healthcare professional for advice.</p><div class="chart-wrap">${chart(rows.slice(0, 8).reverse())}</div>${flagged.map(([name, value, status]) => `<div class="notice" style="border-color:#dc2626;color:#991b1b;background:#fef2f2"><b>${name}: ${esc(value)}</b><br>${esc(status)}</div>`).join("")}<p>If you have severe or concerning symptoms, seek urgent medical care.</p><button class="btn danger" onclick="this.closest('.modal-bg').remove()">Close</button></section>`;
+  warning.className = "modal-bg health-result-overlay";
+  warning.innerHTML = `<section class="modal health-result-card ${resultType}" role="${resultType === "danger" ? "alertdialog" : "dialog"}" aria-modal="true" onclick="event.stopPropagation()"><div class="health-result-icon" aria-hidden="true">${resultType === "danger" ? "!" : resultType === "normal" ? "✓" : "i"}</div><p class="eyebrow">Measurement check</p><h2>${heading}</h2><p class="health-result-copy">${explanation}</p>${observations.length ? `<div class="health-result-list">${observations.map(([name, value, status]) => { const state = isAbnormalStatus(status) ? "danger" : isUnclassifiedStatus(status) ? "caution" : "normal"; return `<div class="health-result-row ${state}"><span><b>${name}</b><small>${esc(value)}</small></span><span>${esc(status || "Not assessed")}</span></div>`; }).join("")}</div>` : ""}${measurement.weight != null ? `<p class="health-weight-note">Weight saved: <b>${esc(measurement.weight)} kg</b> · Review your BMI for weight-category context.</p>` : ""}<div class="health-result-chart"><div class="panel-head"><h3>Recent readings</h3><span>${date(measurement.date)} · ${time(measurement.date)}</span></div><div class="chart-wrap">${chart(rows.slice(0, 8))}</div></div><p class="health-result-disclaimer">${resultType === "danger" ? "If you have severe or concerning symptoms, seek urgent medical care." : "This tool offers general adult reference information, not a diagnosis or personalized medical advice."}</p><button class="btn ${resultType === "danger" ? "danger" : ""}" type="button" onclick="this.closest('.modal-bg').remove()">Done</button></section>`;
+  warning.addEventListener("click", (event) => { if (event.target === warning) warning.remove(); });
   document.body.append(warning);
   window.SehtyI18n?.applyLanguage(warning);
 }
 
 function mlist(rows) {
   return rows.length
-    ? `<div>${rows.map((x) => `<div class="record"><div><div class="record-main">${x.bloodPressure ? "BP " + esc(x.bloodPressure) : ""}${x.heartRate ? " · Pulse " + x.heartRate : ""}${x.bloodSugar ? " · Sugar " + x.bloodSugar : ""}${x.weight ? " · Weight " + x.weight + " kg" : ""}</div><div class="record-sub">Recorded reading</div></div><span class="record-value">${date(x.date)}</span><span class="record-time">${time(x.date)}</span></div>`).join("")}</div>`
+    ? `<div>${rows.map((x) => `<div class="record"><div><div class="record-main">${x.bloodPressure ? "BP " + esc(x.bloodPressure) : ""}${x.heartRate != null ? " · Pulse " + x.heartRate : ""}${x.bloodSugar != null ? " · Sugar " + x.bloodSugar : ""}${x.weight != null ? " · Weight " + x.weight + " kg" : ""}</div><div class="record-sub">${measurementStatusMarkup(x)}</div></div><span class="record-value">${date(x.date)}</span><span class="record-time">${time(x.date)}</span></div>`).join("")}</div>`
     : '<div class="empty">No measurements recorded yet.</div>';
 }
 
 async function dashboard() {
   let d = await api("/dashboard"),
     m = d.measurements[0] || {};
+  try {
+    const assessedMeasurements = await api("/healthmeasurements");
+    if (Array.isArray(assessedMeasurements)) d.measurements = assessedMeasurements;
+    m = d.measurements[0] || m;
+  } catch { }
 
   let bmiData = null;
   try { bmiData = await api("/bmi"); } catch { }
@@ -427,6 +478,8 @@ async function printMeasurements() {
 
 async function health() {
   let r = await api("/healthmeasurements");
+  latestHealthReading = r[0] || null;
+  const latestAssessment = latestHealthReading ? measurementAssessmentType(latestHealthReading) : null;
   shell(
     "Health Measurements",
     "Record measurements when taken to accurately compare readings.",
@@ -438,6 +491,7 @@ async function health() {
       <button class="btn light" onclick="shareHealth('messenger')">Messenger</button>
       <button class="btn" onclick="modal('measurement')">＋ Add Measurement</button>
     </div></div>
+    ${latestHealthReading ? `<section class="health-overview ${latestAssessment}"><div><p class="eyebrow">Latest reading · ${date(latestHealthReading.date)} ${time(latestHealthReading.date)}</p><h3>${latestAssessment === "danger" ? "Reading outside the usual reference range" : latestAssessment === "normal" ? "Your readings are within the usual reference ranges" : "Some readings need context before they can be assessed"}</h3><div class="record-sub">${measurementStatusMarkup(latestHealthReading)}</div></div><button class="btn ${latestAssessment === "danger" ? "danger" : "light"}" onclick="reviewLatestMeasurement()">Review result</button></section>` : ""}
     <details class="notice medical-note"><summary>Health reference ranges and safety information</summary>
       <div class="medical-note-content"><b>General adult reference information (not a diagnosis):</b>
       <ul class="reference-ranges">
@@ -451,7 +505,7 @@ async function health() {
     </details>
     <section class="panel"><div class="panel-head"><h3>Readings Chart</h3><span>Last 8 records</span></div><div class="chart-wrap">${chart(r)}</div></section>
     <section class="panel"><div class="panel-head"><h3>Measurement Log · Newest first</h3><span>${r.length} readings</span></div>
-    ${r.length ? `<div>${r.map((x) => `<div class="record"><div><div class="record-main">${x.bloodPressure ? "BP " + esc(x.bloodPressure) : ""}${x.heartRate ? " · Pulse " + x.heartRate : ""}${x.bloodSugar ? " · Sugar " + x.bloodSugar : ""}${x.weight ? " · Weight " + x.weight + " kg" : ""}</div><div class="record-sub">${x.bloodPressure ? `BP: ${esc(x.bloodPressureStatus)} · ` : ""}${x.bloodSugar ? `Sugar: ${esc(x.bloodSugarStatus)} · ` : ""}${x.heartRate ? `Pulse: ${esc(x.heartRateStatus)}` : ""}</div></div><span class="record-value">${date(x.date)}</span><span class="record-time">${time(x.date)}</span></div>`).join("")}</div>` : '<div class="empty">No measurements recorded yet.</div>'}</section>`,
+    ${r.length ? `<div>${r.map((x) => `<div class="record"><div><div class="record-main">${x.bloodPressure ? "BP " + esc(x.bloodPressure) : ""}${x.heartRate != null ? " · Pulse " + x.heartRate : ""}${x.bloodSugar != null ? " · Sugar " + x.bloodSugar : ""}${x.weight != null ? " · Weight " + x.weight + " kg" : ""}</div><div class="record-sub">${measurementStatusMarkup(x)}</div></div><span class="record-value">${date(x.date)}</span><span class="record-time">${time(x.date)}</span></div>`).join("")}</div>` : '<div class="empty">No measurements recorded yet.</div>'}</section>`,
   );
 }
 
@@ -521,7 +575,7 @@ async function records() {
   shell(
     "Medical Records",
     "Medical history and lab results.",
-    `<div class="page-title"><h2>Records and Labs</h2><div><button class="btn light" onclick="modal('record')">＋ Medical Record</button> <button class="btn" onclick="modal('lab')">＋ Lab Result</button></div></div><section class="panel"><div class="panel-head"><h3>Medical Conditions</h3></div>${a.map((x) => `<div class="record"><div><div class="record-main">${esc(x.condition)}</div><div class="record-sub">${esc(x.description || x.notes || "")}</div></div><span class="record-value">${date(x.diagnosisDate)}</span></div>`).join("") || '<div class="empty">No medical records.</div>'}</section><section class="panel"><div class="panel-head"><h3>Lab Results</h3></div>${b.length ? `<div class="table-wrap"><table><thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Date</th><th>Notes</th><th>Image</th></tr></thead><tbody>${b.map((x) => `<tr><td>${esc(x.testName)}</td><td>${esc(x.result)}</td><td>${esc(x.unit || "—")}</td><td>${date(x.testDate)}</td><td>${esc(x.notes || "—")}</td><td>${imageUrls.get(x.id) ? `<a href="${imageUrls.get(x.id)}" target="_blank" rel="noopener">View image</a>` : "—"}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No lab results.</div>'}</section>`,
+    `<div class="page-title"><h2>Records and Labs</h2><div><button class="btn light" onclick="modal('record')">＋ Medical Record</button> <button class="btn" onclick="modal('lab')">＋ Add Lab Result</button></div></div><section class="panel"><div class="panel-head"><h3>Medical Conditions</h3></div>${a.map((x) => `<div class="record"><div><div class="record-main">${esc(x.condition)}</div><div class="record-sub">${esc(x.description || x.notes || "")}</div></div><span class="record-value">${date(x.diagnosisDate)}</span></div>`).join("") || '<div class="empty">No medical records.</div>'}</section><section class="panel"><div class="panel-head"><h3>Lab Results</h3></div>${b.length ? `<div class="table-wrap"><table><thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Date</th><th>Notes</th><th>Image</th></tr></thead><tbody>${b.map((x) => `<tr><td>${esc(x.testName)}</td><td>${esc(x.result)}</td><td>${esc(x.unit || "—")}</td><td>${date(x.testDate)}</td><td>${esc(x.notes || "—")}</td><td>${imageUrls.get(x.id) ? `<a href="${imageUrls.get(x.id)}" target="_blank" rel="noopener">View image</a>` : "—"}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No lab results.</div>'}</section>`,
   );
 }
 

@@ -2,21 +2,24 @@
   .sidebar {
     overflow-x: auto;
     justify-content: flex-start;
-    gap: 3px;
+    gap: 5px;
     scrollbar-width: none;
+    scroll-snap-type: x proximity;
   }
   .sidebar::-webkit-scrollbar {
     display: none;
   }
   .nav-item {
-    flex: 0 0 57px;
-    min-width: 57px;
-    font-size: 9px;
+    flex: 0 0 auto;
+    min-width: max-content;
+    padding-inline: 10px;
+    font-size: 11px;
     line-height: 1.15;
+    white-space: nowrap;
+    scroll-snap-align: start;
   }
   .nav-item:last-child {
-    flex-basis: 54px;
-    min-width: 54px;
+    flex-basis: auto;
   }
   .profile-text {
     display: none;
