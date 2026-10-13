@@ -525,19 +525,20 @@ async function records() {
   );
 }
 
-function whatsAppUrl(phone) {
+function whatsAppUrl(phone, message = "") {
   if (!phone || phone === "PENDING") return null;
   let digits = String(phone).replace(/\D/g, "");
   if (digits.startsWith("00")) digits = digits.slice(2);
   if (digits.startsWith("01") && digits.length === 11) digits = `2${digits}`;
-  return /^[1-9]\d{6,14}$/.test(digits) ? `https://wa.me/${digits}` : null;
+  if (!/^[1-9]\d{6,14}$/.test(digits)) return null;
+  return `https://wa.me/${digits}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
 }
 
 function doctorBookingUrl(phone, doctorName) {
-  const base = whatsAppUrl(phone);
-  if (!base) return null;
-  const message = `Hello, I would like to book an appointment with ${doctorName}. Please let me know the available times.`;
-  return `${base}?text=${encodeURIComponent(message)}`;
+  const message = language === "ar"
+    ? `مرحبًا دكتور ${doctorName}، أود حجز موعد. ما المواعيد المتاحة؟`
+    : `Hello Dr. ${doctorName}, I would like to book an appointment. What times are available?`;
+  return whatsAppUrl(phone, message);
 }
 
 async function doctors() {
@@ -546,7 +547,7 @@ async function doctors() {
     "Doctors & Appointments",
     "Request an appointment directly through the doctor's WhatsApp.",
     `<div class="page-title"><h2>Doctors</h2></div><div class="cards-grid">${d.map((x) => {
-      const waUrl = doctorBookingUrl(x.whatsAppPhone, x.name);
+      const waUrl = doctorBookingUrl(x.whatsAppPhone || x.phone, x.name);
 
       return `<article class="doctor-card"><div class="doctor-head"><div class="doctor-avatar">⚕</div><div><h3>${esc(x.name)}</h3><p>${esc(x.specialization)}</p></div></div><p>${esc(x.description || "Health consultations and follow-up")}</p><p>☎ ${esc(x.phone || "Contact details not listed")}</p>${waUrl ? `<a class="btn" target="_blank" rel="noopener noreferrer" href="${waUrl}">Book Appointment</a>` : ""}</article>`
     }).join("") || '<div class="empty">No doctors added yet.</div>'}</div>`,
@@ -561,7 +562,10 @@ async function pharmacies() {
     "Pharmacies",
     "Search by name or address.",
     `<div class="page-title"><h2>Pharmacies</h2><input id="pharmacySearch" class="search" style="width:min(300px,60%)" placeholder="Search pharmacy name or address" value="${esc(q)}" oninput="clearTimeout(timer);timer=setTimeout(pharmacies,300)"></div><div class="cards-grid">${r.map((x) => {
-      let waUrl = whatsAppUrl(x.whatsAppPhone);
+      const pharmacyMessage = language === "ar"
+        ? `مرحبًا، أود الاستفسار عن ${x.name}.`
+        : `Hello, I would like to contact ${x.name}.`;
+      let waUrl = whatsAppUrl(x.whatsAppPhone || x.phone, pharmacyMessage);
 
       return `<article class="doctor-card"><div class="doctor-head"><div class="doctor-avatar">✚</div><div><h3>${esc(x.name)}</h3><p>Pharmacy</p></div></div><p>⌖ ${esc(x.address)}</p><p>☎ ${esc(x.phone || "Phone number not listed")}</p><p>◷ ${esc(x.openingHours || "Hours not listed")}</p>${waUrl ? `<a class="btn light" target="_blank" rel="noopener noreferrer" href="${waUrl}">WhatsApp</a>` : ""}</article>`
     }).join("") || '<div class="empty">No results found.</div>'}</div>`,
