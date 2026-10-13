@@ -233,6 +233,12 @@ namespace i_am_building_a_simple_graduation.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("ImageContentType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte[]>("ImageData")
+                        .HasColumnType("varbinary(max)");
+
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
@@ -464,8 +470,9 @@ namespace i_am_building_a_simple_graduation.Migrations
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasDefaultValue("User")
-                        .HasColumnType("nvarchar(max)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("User");
 
                     b.Property<decimal?>("Weight")
                         .HasPrecision(6, 2)

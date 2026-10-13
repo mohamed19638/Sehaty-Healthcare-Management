@@ -87,10 +87,12 @@ At startup, the app creates a password-hashed admin account if the email is new,
 - Registration and login using JWT authentication
 - User-scoped health measurements with date and time
 - Adult reference information for blood pressure, fasting blood glucose, and resting pulse, with clear context requirements and non-diagnostic wording
+- Out-of-reference blood pressure, fasting glucose, and resting-pulse readings are marked red in the chart and show a safety notice after saving
 - BMI calculation based on the user's saved height and weight
-- Medication, medical record, lab result, and activity logs
-- Doctor and pharmacy lists with WhatsApp links only when a valid international number is supplied
-- Personal visit reminders saved to the user's account; they do not book or notify a doctor
+- Medication, medical record, and lab result records; lab results can include a private JPG, PNG, or WEBP image up to 5 MB
+- Doctor and pharmacy lists with WhatsApp links only when a valid international number is supplied; doctor **Book Appointment** opens WhatsApp to request a time
+- Pharmacy phone numbers are shown as text; the site does not display a call button
+- Exercise page contains workout videos only
 - Role-protected admin dashboard for doctor, pharmacy, and workout-video catalogue management
 - Private per-user meal entries with optional user-entered calorie estimates; no nutritional values are invented
 - Nine owner-provided YouTube workout videos added to the exercise catalogue at API startup
@@ -113,13 +115,13 @@ The simple reference labels are intended for adults and are not diagnoses:
 
 Sources: [CDC adult BMI categories](https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html), [American Heart Association blood pressure categories](https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings), [MedlinePlus typical resting adult vital signs](https://medlineplus.gov/ency/article/002341.htm), [CDC diabetes testing](https://www.cdc.gov/diabetes/diabetes-testing/index.html), and [MedlinePlus pulse information](https://medlineplus.gov/ency/article/003399.htm).
 
-## WhatsApp and visit reminders
+## WhatsApp contact
 
-WhatsApp buttons become active when an admin adds a real number in international format, such as `+20 100 123 4567`. The app removes formatting and opens a `wa.me` link; a contact still needs WhatsApp enabled on that number. A saved visit reminder is private to the user and does not reserve a doctor slot or send a booking request.
+WhatsApp links become active when an admin adds a real number in international format, such as `+20 100 123 4567`. The app removes formatting and opens a `wa.me` link; a contact still needs WhatsApp enabled on that number. If no number is configured, the contact card simply has no WhatsApp button. A doctor booking request is sent by the user through WhatsApp; the app itself does not reserve a slot or confirm the booking.
 
 ## Add real catalogue data later
 
-Doctor and pharmacy records are stored in the `Doctors` and `Pharmacies` tables. The Admin Dashboard manages these records and validates international WhatsApp numbers. Meal records are in `Meals`. Exercise video records are in `Exercises`; only HTTPS YouTube watch, Shorts, or `youtu.be` links with valid video IDs are embedded. Existing records are preserved.
+Doctor and pharmacy records are stored in the `Doctors` and `Pharmacies` tables. The Admin Dashboard manages these records and validates international WhatsApp numbers. Meal records are in `Meals`. Exercise video records are in `Exercises`; only HTTPS YouTube watch, Shorts, or `youtu.be` links with valid video IDs are embedded. Existing records are preserved. Admins can correct video titles and URLs in the dashboard.
 
 ## API routes
 
@@ -141,7 +143,7 @@ Chat and personal calorie/macro logging have been removed from the active API an
 
 ## Database migrations
 
-Migrations are in `backend/Migrations/`. `backend/Data/AppDbContextFactory.cs` lets EF Core create migrations without starting the API or applying them to the configured database. The latest migration adds the user role and removes global appointment-slot uniqueness because these are personal reminders, not reservations; existing health records are retained.
+Migrations are in `backend/Migrations/`. `backend/Data/AppDbContextFactory.cs` lets EF Core create migrations without starting the API or applying them to the configured database. The latest migration adds private image storage fields to lab results. Earlier migrations also add the user role and remove global appointment-slot uniqueness; existing health records are retained.
 
 ## Project layout
 

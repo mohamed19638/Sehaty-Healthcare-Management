@@ -38,10 +38,11 @@ const date = (d) => new Date(d).toLocaleDateString(language === "ar" ? "ar-EG" :
   go = (p) => (location.hash = "#" + p);
 
 async function api(path, opt = {}) {
+  const isFormData = opt.body instanceof FormData;
   let r = await fetch(apiBase + "/api" + path, {
     ...opt,
     headers: {
-      "Content-Type": "application/json",
+      ...(!isFormData ? { "Content-Type": "application/json" } : {}),
       ...(localStorage.token
         ? { Authorization: "Bearer " + localStorage.token }
         : {}),
@@ -99,10 +100,10 @@ const nav = [
   ["dashboard", "⌂", "Dashboard"],
   ["health", "♡", "Health Measurements"],
   ["bmi", "⚖", "BMI Calculator"],
-  ["fitness", "↗", "Activity & Exercises"],
+  ["fitness", "▶", "Exercise Videos"],
   ["medications", "✚", "Medications"],
   ["records", "▤", "Medical Records"],
-  ["doctors", "⚕", "Doctors & Visit Reminders"],
+  ["doctors", "⚕", "Doctors & Appointments"],
   ["pharmacies", "⌖", "Pharmacies"],
   ["meals", "🍽", "Healthy Meals"],
 ];
@@ -127,26 +128,27 @@ function metric(n, v, u, i, note = "Latest reading") {
 
 function chart(rows) {
   let a = [...rows].reverse().slice(-8);
-  if (a.length < 2)
-    return '<div class="empty">Add two or more measurements to view trends over time.</div>';
+  if (!a.length)
+    return '<div class="empty">Add measurements to view trends over time.</div>';
   let w = 650,
     h = 180,
     p = 24,
     series = [
-      ["Pulse", (x) => x.heartRate == null ? NaN : Number(x.heartRate), "#16877f"],
-      ["Sugar", (x) => x.bloodSugar == null ? NaN : Number(x.bloodSugar), "#ef8c75"],
-      ["Weight", (x) => x.weight == null ? NaN : Number(x.weight), "#e8b65e"],
+      ["Pulse", (x) => x.heartRate == null ? NaN : Number(x.heartRate), "#16877f", "heartRateStatus"],
+      ["Sugar", (x) => x.bloodSugar == null ? NaN : Number(x.bloodSugar), "#ef8c75", "bloodSugarStatus"],
+      ["Weight", (x) => x.weight == null ? NaN : Number(x.weight), "#e8b65e", null],
       [
         "Systolic BP",
         (x) => x.bloodPressure ? Number(String(x.bloodPressure).split("/")[0]) : NaN,
         "#8b78c8",
+        "bloodPressureStatus",
       ],
     ],
     lines = series
-      .map(([name, get, color]) => {
+      .map(([name, get, color, statusKey]) => {
         let vv = a.map(get),
           valid = vv.filter(Number.isFinite);
-        if (valid.length < 2) return "";
+        if (valid.length < 1) return "";
         let lo = Math.min(...valid),
           hi = Math.max(...valid),
           ps = vv.map((v, i) =>
@@ -163,10 +165,33 @@ function chart(rows) {
             .map((q, i) => (q ? (i ? "L" : "M") + q[0] + "," + q[1] : null))
             .filter(Boolean)
             .join(" ");
-        return `<path d="${d}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${ps.map((q, i) => (q ? `<circle cx="${q[0]}" cy="${q[1]}" r="4" fill="white" stroke="${color}" stroke-width="3"><title>${name}: ${get(a[i])} · ${date(a[i].date)} ${time(a[i].date)}</title></circle>` : "")).join("")}`;
+        const trendLine = valid.length > 1 ? `<path d="${d}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : "";
+        return `${trendLine}${ps.map((q, i) => { if (!q) return ""; const abnormal = statusKey && isAbnormalStatus(a[i][statusKey]); const pointColor = abnormal ? "#dc2626" : color; return `<circle cx="${q[0]}" cy="${q[1]}" r="${abnormal ? 6 : 4}" fill="${abnormal ? "#fee2e2" : "white"}" stroke="${pointColor}" stroke-width="3"><title>${name}: ${get(a[i])} · ${date(a[i].date)} ${time(a[i].date)} · ${a[i][statusKey] || ""}</title></circle>`; }).join("")}`;
       })
       .join("");
-  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${[0.2, 0.5, 0.8].map((y) => `<line class="chart-grid" x1="${p}" x2="${w - p}" y1="${h * y}" y2="${h * y}"/>`).join("")}${lines}</svg><div class="chart-legend"><span>Pulse</span><span>Sugar</span><span>Weight (kg)</span><span>Systolic BP</span></div>`;
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${[0.2, 0.5, 0.8].map((y) => `<line class="chart-grid" x1="${p}" x2="${w - p}" y1="${h * y}" y2="${h * y}"/>`).join("")}${lines}</svg><div class="chart-legend"><span>Pulse</span><span>Sugar</span><span>Weight (kg)</span><span>Systolic BP</span><span style="color:#dc2626">● Outside reference range</span></div>`;
+}
+
+function isAbnormalStatus(status) {
+  const value = String(status || "").toLowerCase();
+  if (!value || ["within", "not classified", "not recorded", "invalid", "adult reference categories do not apply"].some(x => value.includes(x))) return false;
+  return ["outside", "above", "below", "low", "high", "elevated"].some(x => value.includes(x));
+}
+
+async function showMeasurementAlert(measurement) {
+  const flagged = [
+    ["Blood pressure", measurement.bloodPressure, measurement.bloodPressureStatus],
+    ["Blood sugar", measurement.bloodSugar, measurement.bloodSugarStatus],
+    ["Heart rate", measurement.heartRate, measurement.heartRateStatus],
+  ].filter(([, value, status]) => value != null && isAbnormalStatus(status));
+  if (!flagged.length) return;
+  let rows = [measurement];
+  try { rows = await api("/healthmeasurements"); } catch { }
+  const warning = document.createElement("div");
+  warning.className = "modal-bg";
+  warning.innerHTML = `<section class="modal" role="alertdialog" aria-modal="true" style="border:2px solid #dc2626"><h3 style="color:#b91c1c">⚠ Health reading outside the usual reference range</h3><p>One or more results may need attention. This is a screening reference, not a diagnosis. Repeat the measurement correctly and contact a healthcare professional for advice.</p><div class="chart-wrap">${chart(rows.slice(0, 8).reverse())}</div>${flagged.map(([name, value, status]) => `<div class="notice" style="border-color:#dc2626;color:#991b1b;background:#fef2f2"><b>${name}: ${esc(value)}</b><br>${esc(status)}</div>`).join("")}<p>If you have severe or concerning symptoms, seek urgent medical care.</p><button class="btn danger" onclick="this.closest('.modal-bg').remove()">Close</button></section>`;
+  document.body.append(warning);
+  window.SehtyI18n?.applyLanguage(warning);
 }
 
 function mlist(rows) {
@@ -177,8 +202,7 @@ function mlist(rows) {
 
 async function dashboard() {
   let d = await api("/dashboard"),
-    m = d.measurements[0] || {},
-    next = d.appointments[0];
+    m = d.measurements[0] || {};
 
   let bmiData = null;
   try { bmiData = await api("/bmi"); } catch { }
@@ -196,7 +220,7 @@ async function dashboard() {
       </div>` : `
       <div class="empty">Update your height and weight to see your BMI.</div>`}
       <button class="btn light" style="width:100%;margin-top:10px" onclick="bmiModal()">Update Details</button>
-    </section><section class="panel"><div class="panel-head"><h3>Next Visit Reminder</h3><a class="link" href="#doctors">Doctors</a></div>${next ? `<div class="record"><div><div class="record-main">${esc(next.doctor?.name)}</div><div class="record-sub">${esc(next.doctor?.specialization)}</div></div><span class="record-value">${date(next.appointmentDate)}</span><span class="record-time">${time(next.appointmentDate)}</span></div>` : '<div class="empty">No upcoming visit reminders.</div>'}</section><section class="panel"><div class="panel-head"><h3>Quick Actions</h3></div><div class="quick-grid"><button class="quick" onclick="modal('measurement')"><b>＋</b>New Measurement</button><button class="quick" onclick="go('medications')"><b>＋</b>Add Medication</button><button class="quick" onclick="go('doctors')"><b>＋</b>Find a Doctor</button><button class="quick" onclick="go('bmi')"><b>＋</b>Check BMI</button></div></section></div></div>`,
+    </section><section class="panel"><div class="panel-head"><h3>Book an Appointment</h3><a class="link" href="#doctors">View Doctors</a></div><p>Choose a doctor and contact them directly through WhatsApp to arrange your appointment.</p></section><section class="panel"><div class="panel-head"><h3>Quick Actions</h3></div><div class="quick-grid"><button class="quick" onclick="modal('measurement')"><b>＋</b>New Measurement</button><button class="quick" onclick="go('medications')"><b>＋</b>Add Medication</button><button class="quick" onclick="go('doctors')"><b>＋</b>Find a Doctor</button><button class="quick" onclick="go('bmi')"><b>＋</b>Check BMI</button></div></section></div></div>`,
   );
 }
 
@@ -263,6 +287,7 @@ const forms = {
       ["unit", "Unit", "text"],
       ["testDate", "Test Date", "date"],
       ["notes", "Notes", "text"],
+      ["image", "Upload test image (JPG, PNG, WEBP · max 5 MB)", "file"],
     ],
   ],
 };
@@ -272,22 +297,45 @@ function modal(k) {
   document.querySelector(".modal-bg")?.remove();
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<div class="modal-bg" onclick="if(event.target===this)this.remove()"><form class="modal" id="entry"><h3>${title}</h3><div class="form-grid">${fields.map(([n, label, type, options]) => `<div class="field ${["notes", "instructions"].includes(n) ? "wide" : ""}"><label for="${n}">${label}</label>${type === "select" ? `<select id="${n}" name="${n}">${options.map(([value, text]) => `<option value="${value}">${text}</option>`).join("")}</select>` : `<input id="${n}" name="${n}" type="${type}" ${type === "datetime-local" ? `value="${(() => { const local = new Date(); local.setMinutes(local.getMinutes() - local.getTimezoneOffset()); return local.toISOString().slice(0, 16); })()}"` : ["date", "diagnosisDate", "testDate", "startDate"].includes(n) ? `value="${today()}"` : ""} ${["name", "activityName", "condition", "testName", "result"].includes(n) ? "required" : ""} ${type === "number" ? `min="0" step="${n === "calories" ? "1" : "0.1"}"` : ""}>`}</div>`).join("")}</div><div id="formError"></div><button class="btn">Save</button> <button type="button" class="btn ghost" onclick="document.querySelector('.modal-bg').remove()">Cancel</button></form></div>`,
+    `<div class="modal-bg" onclick="if(event.target===this)this.remove()"><form class="modal" id="entry"><h3>${title}</h3><div class="form-grid">${fields.map(([n, label, type, options]) => `<div class="field ${["notes", "instructions", "image"].includes(n) ? "wide" : ""}"><label for="${n}">${label}</label>${type === "select" ? `<select id="${n}" name="${n}">${options.map(([value, text]) => `<option value="${value}">${text}</option>`).join("")}</select>` : `<input id="${n}" name="${n}" type="${type}" ${n === "image" ? 'accept="image/jpeg,image/png,image/webp"' : ""} ${type === "datetime-local" ? `value="${(() => { const local = new Date(); local.setMinutes(local.getMinutes() - local.getTimezoneOffset()); return local.toISOString().slice(0, 16); })()}"` : ["date", "diagnosisDate", "testDate", "startDate"].includes(n) ? `value="${today()}"` : ""} ${["name", "activityName", "condition", "testName", "result"].includes(n) ? "required" : ""} ${type === "number" ? `min="0" step="${n === "calories" ? "1" : "0.1"}"` : ""}>`}</div>`).join("")}</div><div id="formError"></div><button class="btn">Save</button> <button type="button" class="btn ghost" onclick="document.querySelector('.modal-bg').remove()">Cancel</button></form></div>`,
   );
   document.querySelector("#entry").onsubmit = async (e) => {
     e.preventDefault();
-    let o = Object.fromEntries(new FormData(e.target));
+    const formData = new FormData(e.target);
+    let o = Object.fromEntries(formData);
+    const image = o.image;
+    delete o.image;
     fields.forEach(([n, , t]) => {
       if (t === "number") o[n] = o[n] ? Number(o[n]) : null;
       if (t === "datetime-local") o[n] = new Date(o[n]).toISOString();
       if (t === "select") o[n] = o[n] === "" ? null : o[n] === "true";
     });
+    let created = null;
     try {
-      await api(url, { method: "POST", body: JSON.stringify(o) });
-      document.querySelector(".modal-bg").remove();
-      view();
+      created = await api(url, { method: "POST", body: JSON.stringify(o) });
+      if (k === "measurement") {
+        document.querySelector(".modal-bg").remove();
+        await view();
+        await showMeasurementAlert(created);
+      } else if (k === "lab" && image instanceof File && image.size > 0) {
+        const upload = new FormData();
+        upload.append("image", image);
+        try {
+          await api(`/labresults/${created.id}/image`, { method: "POST", body: upload });
+        } catch (uploadError) {
+          try { await api(`/labresults/${created.id}`, { method: "DELETE" }); } catch { }
+          throw uploadError;
+        }
+        document.querySelector(".modal-bg").remove();
+        await view();
+      } else {
+        document.querySelector(".modal-bg").remove();
+        view();
+      }
     } catch (x) {
-      document.querySelector("#formError").innerHTML = `<div class="notice">${esc(x.message)}</div>`;
+      const errorBox = document.querySelector("#formError");
+      if (errorBox) errorBox.innerHTML = `<div class="notice">${esc(x.message)}</div>`;
+      else alert(x.message);
     }
   };
 }
@@ -449,23 +497,12 @@ async function bmi() {
 }
 
 async function fitness() {
-  let r = await api("/fitness");
-  let ex = [];
-  try { ex = await api("/exercises"); } catch { }
-
+  const ex = await api("/exercises");
   shell(
-    "Activity & Exercises",
-    "Record your workouts and activity.",
-    `<div class="page-title"><h2>Activity Summary</h2><button class="btn" onclick="modal('fitness')">＋ Log Activity</button></div><div class="metrics">${metric("Activities", r.length, "", "↗", "Total logs")}${metric(
-      "Workout Time",
-      r.reduce((s, x) => s + x.durationMinutes, 0),
-      "min",
-      "◷",
-      "Total duration",
-    )}${metric("Latest Activity", r[0]?.activityName || "—", "", "🏃", r[0] ? date(r[0].date) + " · " + time(r[0].date) : "None")}</div>
-    <section class="panel"><div class="panel-head"><h3>Recorded Activities</h3></div>${r.length ? `<div class="table-wrap"><table><thead><tr><th>Activity</th><th>Time</th><th>Duration</th><th>Notes</th></tr></thead><tbody>${r.map((x) => `<tr><td>${esc(x.activityName)}</td><td>${date(x.date)} · ${time(x.date)}</td><td>${x.durationMinutes} min</td><td>${esc(x.notes || "—")}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">You haven\'t logged an activity yet.</div>'}</section>
-    <section class="panel"><div class="panel-head"><h3>Exercise Videos</h3></div>
-    ${ex && ex.length ? `<div class="cards-grid">${ex.map(x => `<article class="doctor-card" style="padding:10px">
+    "Exercise Videos",
+    "Short guided workout videos.",
+    `<section class="panel"><div class="panel-head"><h3>Workout Videos</h3></div>
+    ${ex?.length ? `<div class="cards-grid">${ex.map(x => `<article class="doctor-card" style="padding:10px">
         <h4 style="margin:5px 0 10px">${esc(x.name)}</h4>
         ${x.description ? `<p>${esc(x.description)}</p>` : ""}
         ${x.videoId ? `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.videoId)}" title="${esc(x.name)}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>` : '<p class="metric-note">No valid YouTube video is linked yet.</p>'}
@@ -476,10 +513,15 @@ async function fitness() {
 
 async function records() {
   let [a, b] = await Promise.all([api("/medicalrecords"), api("/labresults")]);
+  const images = await Promise.all(b.filter(x => x.hasImage).map(async x => {
+    const response = await fetch(`${apiBase}/api/labresults/${x.id}/image`, { headers: { Authorization: `Bearer ${localStorage.token}` } });
+    return [x.id, response.ok ? URL.createObjectURL(await response.blob()) : null];
+  }));
+  const imageUrls = new Map(images);
   shell(
     "Medical Records",
     "Medical history and lab results.",
-    `<div class="page-title"><h2>Records and Labs</h2><div><button class="btn light" onclick="modal('record')">＋ Medical Record</button> <button class="btn" onclick="modal('lab')">＋ Lab Result</button></div></div><section class="panel"><div class="panel-head"><h3>Medical Conditions</h3></div>${a.map((x) => `<div class="record"><div><div class="record-main">${esc(x.condition)}</div><div class="record-sub">${esc(x.description || x.notes || "")}</div></div><span class="record-value">${date(x.diagnosisDate)}</span></div>`).join("") || '<div class="empty">No medical records.</div>'}</section><section class="panel"><div class="panel-head"><h3>Lab Results</h3></div>${b.length ? `<div class="table-wrap"><table><thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Date</th><th>Notes</th></tr></thead><tbody>${b.map((x) => `<tr><td>${esc(x.testName)}</td><td>${esc(x.result)}</td><td>${esc(x.unit || "—")}</td><td>${date(x.testDate)}</td><td>${esc(x.notes || "—")}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No lab results.</div>'}</section>`,
+    `<div class="page-title"><h2>Records and Labs</h2><div><button class="btn light" onclick="modal('record')">＋ Medical Record</button> <button class="btn" onclick="modal('lab')">＋ Lab Result</button></div></div><section class="panel"><div class="panel-head"><h3>Medical Conditions</h3></div>${a.map((x) => `<div class="record"><div><div class="record-main">${esc(x.condition)}</div><div class="record-sub">${esc(x.description || x.notes || "")}</div></div><span class="record-value">${date(x.diagnosisDate)}</span></div>`).join("") || '<div class="empty">No medical records.</div>'}</section><section class="panel"><div class="panel-head"><h3>Lab Results</h3></div>${b.length ? `<div class="table-wrap"><table><thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Date</th><th>Notes</th><th>Image</th></tr></thead><tbody>${b.map((x) => `<tr><td>${esc(x.testName)}</td><td>${esc(x.result)}</td><td>${esc(x.unit || "—")}</td><td>${date(x.testDate)}</td><td>${esc(x.notes || "—")}</td><td>${imageUrls.get(x.id) ? `<a href="${imageUrls.get(x.id)}" target="_blank" rel="noopener">View image</a>` : "—"}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No lab results.</div>'}</section>`,
   );
 }
 
@@ -491,48 +533,24 @@ function whatsAppUrl(phone) {
   return /^[1-9]\d{6,14}$/.test(digits) ? `https://wa.me/${digits}` : null;
 }
 
-async function doctors() {
-  let [d, a] = await Promise.all([api("/doctors"), api("/appointments")]);
-  shell(
-    "Doctors & Visit Reminders",
-    "Contact a doctor through WhatsApp or save a personal visit reminder.",
-    `<div class="page-title"><h2>Doctors</h2></div><div class="cards-grid">${d.map((x) => {
-      let waUrl = whatsAppUrl(x.whatsAppPhone);
-
-      return `<article class="doctor-card"><div class="doctor-head"><div class="doctor-avatar">⚕</div><div><h3>${esc(x.name)}</h3><p>${esc(x.specialization)}</p></div></div><p>${esc(x.description || "Health consultations and follow-up")}</p><p>☎ ${esc(x.phone || "Contact clinic")}</p><button class="btn" onclick="book(${x.id},'${esc(x.name)}')">Save Visit Reminder</button>
-      ${waUrl ? `<a class="btn light" target="_blank" rel="noopener noreferrer" href="${waUrl}">WhatsApp</a>` : `<button class="btn light" disabled title="A verified international WhatsApp number has not been provided">WhatsApp number not added</button>`}</article>`
-    }).join("")}</div><section class="panel" style="margin-top:16px"><div class="panel-head"><h3>My Visit Reminders</h3></div><p>This is a personal reminder only. It does not contact the doctor or confirm an appointment.</p>${a.map((x) => `<div class="record"><div><div class="record-main">${esc(x.doctor?.name)}</div><div class="record-sub">${esc(x.doctor?.specialization)} · Personal reminder</div></div><span class="record-value">${date(x.appointmentDate)}</span><span class="record-time">${time(x.appointmentDate)}</span><button class="btn danger" onclick="del('/appointments/${x.id}')">Delete</button></div>`).join("") || '<div class="empty">No visit reminders saved.</div>'}</section>`,
-  );
+function doctorBookingUrl(phone, doctorName) {
+  const base = whatsAppUrl(phone);
+  if (!base) return null;
+  const message = `Hello, I would like to book an appointment with ${doctorName}. Please let me know the available times.`;
+  return `${base}?text=${encodeURIComponent(message)}`;
 }
 
-function book(id, name) {
-  const localDateTime = new Date(Date.now() + 60 * 60 * 1000);
-  localDateTime.setMinutes(0, 0, 0);
-  const minDateTime = new Date(Date.now() + 60 * 1000);
-  minDateTime.setMinutes(minDateTime.getMinutes() - minDateTime.getTimezoneOffset());
-  localDateTime.setMinutes(localDateTime.getMinutes() - localDateTime.getTimezoneOffset());
-  document.body.insertAdjacentHTML(
-    "beforeend",
-    `<div class="modal-bg" onclick="if(event.target===this)this.remove()"><form class="modal" id="booking"><h3>Save a visit reminder for ${esc(name)}</h3><p>This saves a reminder in your account only. It does not book, message, or notify the doctor.</p><div class="field"><label for="appointmentDate">Planned date and time</label><input id="appointmentDate" type="datetime-local" min="${minDateTime.toISOString().slice(0,16)}" value="${localDateTime.toISOString().slice(0,16)}" required></div><div class="field"><label for="appointmentNotes">Personal note (optional)</label><textarea id="appointmentNotes" name="notes"></textarea></div><div id="bookingError"></div><button class="btn">Save Reminder</button> <button type="button" class="btn ghost" onclick="document.querySelector('.modal-bg').remove()">Cancel</button></form></div>`,
+async function doctors() {
+  const d = await api("/doctors");
+  shell(
+    "Doctors & Appointments",
+    "Request an appointment directly through the doctor's WhatsApp.",
+    `<div class="page-title"><h2>Doctors</h2></div><div class="cards-grid">${d.map((x) => {
+      const waUrl = doctorBookingUrl(x.whatsAppPhone, x.name);
+
+      return `<article class="doctor-card"><div class="doctor-head"><div class="doctor-avatar">⚕</div><div><h3>${esc(x.name)}</h3><p>${esc(x.specialization)}</p></div></div><p>${esc(x.description || "Health consultations and follow-up")}</p><p>☎ ${esc(x.phone || "Contact details not listed")}</p>${waUrl ? `<a class="btn" target="_blank" rel="noopener noreferrer" href="${waUrl}">Book Appointment</a>` : ""}</article>`
+    }).join("") || '<div class="empty">No doctors added yet.</div>'}</div>`,
   );
-  document.querySelector("#booking").onsubmit = async (e) => {
-    e.preventDefault();
-    const form = new FormData(e.target);
-    try {
-      await api("/appointments", {
-        method: "POST",
-        body: JSON.stringify({
-          doctorId: id,
-          appointmentDate: new Date(document.querySelector("#appointmentDate").value).toISOString(),
-          notes: form.get("notes"),
-        }),
-      });
-      document.querySelector(".modal-bg").remove();
-      doctors();
-    } catch (error) {
-      document.querySelector("#bookingError").innerHTML = `<div class="notice">${esc(error.message)}</div>`;
-    }
-  };
 }
 
 let timer;
@@ -545,7 +563,7 @@ async function pharmacies() {
     `<div class="page-title"><h2>Pharmacies</h2><input id="pharmacySearch" class="search" style="width:min(300px,60%)" placeholder="Search pharmacy name or address" value="${esc(q)}" oninput="clearTimeout(timer);timer=setTimeout(pharmacies,300)"></div><div class="cards-grid">${r.map((x) => {
       let waUrl = whatsAppUrl(x.whatsAppPhone);
 
-      return `<article class="doctor-card"><div class="doctor-head"><div class="doctor-avatar">✚</div><div><h3>${esc(x.name)}</h3><p>Pharmacy</p></div></div><p>⌖ ${esc(x.address)}</p><p>☎ ${esc(x.phone || "Not available")}</p><p>◷ ${esc(x.openingHours || "Call for hours")}</p><div style="display:flex;gap:8px;margin-top:12px">${x.phone ? `<a class="btn" href="tel:${esc(x.phone)}">Call</a>` : ""} ${waUrl ? `<a class="btn light" target="_blank" rel="noopener noreferrer" href="${waUrl}">WhatsApp</a>` : `<button class="btn light" disabled title="A verified international WhatsApp number has not been provided">WhatsApp unavailable</button>`}</div></article>`
+      return `<article class="doctor-card"><div class="doctor-head"><div class="doctor-avatar">✚</div><div><h3>${esc(x.name)}</h3><p>Pharmacy</p></div></div><p>⌖ ${esc(x.address)}</p><p>☎ ${esc(x.phone || "Phone number not listed")}</p><p>◷ ${esc(x.openingHours || "Hours not listed")}</p>${waUrl ? `<a class="btn light" target="_blank" rel="noopener noreferrer" href="${waUrl}">WhatsApp</a>` : ""}</article>`
     }).join("") || '<div class="empty">No results found.</div>'}</div>`,
   );
 }

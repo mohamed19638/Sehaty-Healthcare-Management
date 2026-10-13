@@ -11,6 +11,9 @@ public class LabResult
     public string? Unit { get; set; }
     public DateTime TestDate { get; set; }
     public string? Notes { get; set; }
+    public string? ImageContentType { get; set; }
+    [JsonIgnore]
+    public byte[]? ImageData { get; set; }
     [JsonIgnore]
     public User User { get; set; } = null!;
 }
